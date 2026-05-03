@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Centro de Proyectos</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<style>
+  :root {
+    --ink: #1a1814;
+    --paper: #f5f1e8;
+    --paper-warm: #ebe4d2;
+    --accent: #c84b1d;
+    --accent-soft: #e8a987;
+    --muted: #8a8275;
+    --line: #d4ccb8;
+    --green: #5a7a3a;
+    --amber: #c89a2e;
+    --slate: #4a5568;
+    --red: #b03030;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(200,75,29,0.04) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(90,122,58,0.04) 0%, transparent 40%);
+  }
+
+  /* ---------- LOGIN ---------- */
+  .login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    max-width: 460px;
+    text-align: center;
+    padding: 48px 40px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(26,24,20,0.08);
+  }
+  .login-card h1 {
+    font-size: 36px;
+    font-weight: 500;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+  .login-card h1 em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 400;
+  }
+  .login-card p {
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+  .google-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .google-btn:hover { transform: translateY(-1px); }
+  .google-btn:disabled { opacity: 0.5; cursor: wait; }
+  .login-meta {
+    margin-top: 32px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    line-height: 1.8;
+  }
+
+  /* ---------- HEADER ---------- */
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 24px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    background: var(--paper);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .logo {
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+  .logo em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 400;
+  }
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .header-right { display: flex; gap: 16px; align-items: center; }
+  .sync-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .sync-indicator.connected { color: var(--green); }
+  .sync-indicator.saving { color: var(--amber); }
+  .sync-indicator.error { color: var(--red); }
+  .sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 2s infinite;
+  }
+  .logout-btn {
+    background: none;
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .logout-btn:hover { color: var(--ink); border-color: var(--ink); }
+
+  /* ---------- TOOLBAR ---------- */
+  .toolbar {
+    padding: 24px 40px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .filter-group {
+    display: flex;
+    gap: 4px;
+    background: var(--paper-warm);
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { color: var(--ink); }
+  .filter-btn.active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .search {
+    flex: 1;
+    max-width: 300px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    border-radius: 6px;
+    color: var(--ink);
+  }
+  .search:focus { outline: none; border-color: var(--accent); }
+  .add-btn {
+    margin-left: auto;
+    padding: 8px 18px;
+    background: var(--accent);
+    color: var(--paper);
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: transform 0.15s;
+  }
+  .add-btn:hover { transform: translateY(-1px); }
+
+  /* ---------- WEEK VIEW ---------- */
+  .week-view {
+    margin: 32px 40px;
+    padding: 24px;
+    background: linear-gradient(135deg, #2a2620 0%, #1a1814 100%);
+    color: var(--paper);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .week-view::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(232,169,135,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .week-view h2 {
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--accent-soft);
+    margin-bottom: 16px;
+  }
+  .week-tasks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .week-task {
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.05);
+    border-left: 2px solid var(--accent);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .week-task:hover { background: rgba(255,255,255,0.1); }
+  .week-task .proj {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .week-task .task {
+    font-size: 15px;
+    font-weight: 400;
+  }
+
+  /* ---------- GRID ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 0 40px 40px;
+  }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(26,24,20,0.12);
+    border-color: var(--ink);
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--status-color, var(--muted));
+  }
+  .card[data-status="activo"] { --status-color: var(--green); }
+  .card[data-status="pausado"] { --status-color: var(--amber); }
+  .card[data-status="planificacion"] { --status-color: var(--slate); }
+  .card[data-status="completado"] { --status-color: var(--muted); }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .card-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+  .status-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: var(--status-color);
+    color: var(--paper);
+  }
+  .card h3 {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+    font-variation-settings: "opsz" 144;
+  }
+  .card .description {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+    font-style: italic;
+  }
+  .progress-section { margin-bottom: 14px; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .progress-bar {
+    height: 4px;
+    background: var(--paper-warm);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--status-color, var(--accent));
+    border-radius: 2px;
+    transition: width 0.4s;
+  }
+  .next-step {
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+    font-size: 13px;
+  }
+  .next-step .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .next-step .text { color: var(--ink); line-height: 1.4; }
+  .tags { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    background: var(--paper-warm);
+    color: var(--muted);
+    border-radius: 3px;
+  }
+
+  /* ---------- MODAL ---------- */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(26,24,20,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--paper);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 32px;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    transition: background 0.2s;
+  }
+  .modal-close:hover { background: var(--paper-warm); }
+  .modal h2 {
+    font-size: 32px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+  .modal .subtitle {
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 24px;
+  }
+  .editable {
+    cursor: text;
+    padding: 4px 8px;
+    margin: -4px -8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .editable:hover { background: var(--paper-warm); }
+  .editable[contenteditable="true"]:focus {
+    outline: 2px solid var(--accent);
+    background: var(--paper);
+  }
+  .modal-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .control-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  select, .progress-input {
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .progress-input { width: 60px; }
+  .danger-btn {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--red);
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  .danger-btn:hover { background: var(--red); color: var(--paper); border-color: var(--red); }
+  .kanban {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .column {
+    background: var(--paper-warm);
+    border-radius: 8px;
+    padding: 14px;
+    min-height: 200px;
+  }
+  .column h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .task-card {
+    background: var(--paper);
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    border-left: 2px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .task-card.priority { border-left-color: var(--accent); }
+  .task-card .task-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .task-card:hover .task-actions { opacity: 1; }
+  .task-card button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .task-card button:hover { background: var(--paper-warm); color: var(--ink); }
+  .add-task-form {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .add-task-form input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    background: transparent;
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .add-task-form input:focus { outline: none; border-color: var(--accent); }
+  .add-task-form button {
+    padding: 4px 10px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+  }
+  .modal-section { margin-top: 24px; }
+  .modal-section h3 {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .small-add {
+    background: none;
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .small-add:hover { color: var(--ink); border-color: var(--ink); }
+  .notes-area {
+    width: 100%;
+    min-height: 100px;
+    padding: 14px;
+    background: var(--paper-warm);
+    border: none;
+    border-radius: 8px;
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    color: var(--ink);
+    resize: vertical;
+    line-height: 1.6;
+  }
+  .notes-area:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .roadmap-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: center;
+  }
+  .roadmap-item:last-child { border-bottom: none; }
+  .roadmap-marker {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 2px solid var(--accent);
+  }
+  .roadmap-marker.done { background: var(--green); border-color: var(--green); }
+  .roadmap-marker.future { background: transparent; border-color: var(--muted); }
+  .roadmap-when, .roadmap-what {
+    border: none;
+    background: transparent;
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    color: var(--ink);
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  .roadmap-when {
+    width: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .roadmap-what { flex: 1; }
+  .roadmap-when:focus, .roadmap-what:focus {
+    outline: 1px solid var(--accent);
+    background: var(--paper);
+  }
+  .roadmap-delete {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .roadmap-item:hover .roadmap-delete { opacity: 1; }
+  .empty-hint {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  @media (max-width: 640px) {
+    header, .toolbar, .grid, .week-view { padding-left: 20px; padding-right: 20px; }
+    .week-view { margin: 20px; }
+    .grid { padding: 0 20px 20px; }
+    .kanban { grid-template-columns: 1fr; }
+    .modal { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <h1>Centro de <em>Proyectos</em></h1>
+    <p>Tu base de operaciones personal. Conecta con Google Drive para empezar.</p>
+    <button class="google-btn" id="loginBtn" disabled>
+      <span id="loginBtnText">Cargando...</span>
+    </button>
+    <div class="login-meta">
+      Solo accede a archivos creados por la propia app<br>
+      Tus datos viven en tu Drive · No se envían a ningún otro sitio
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+  <header>
+    <div>
+      <div class="logo">Centro de <em>Proyectos</em></div>
+      <div class="meta" style="margin-top: 4px;" id="metaInfo">cargando...</div>
+    </div>
+    <div class="header-right">
+      <div class="sync-indicator connected" id="syncIndicator">
+        <span class="sync-dot"></span>
+        <span id="syncText">Drive conectado</span>
+      </div>
+      <button class="logout-btn" id="logoutBtn">Salir</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="filter-group">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="activo">Activos</button>
+      <button class="filter-btn" data-filter="pausado">Pausados</button>
+      <button class="filter-btn" data-filter="planificacion">Planificación</button>
+      <button class="filter-btn" data-filter="completado">Completados</button>
+    </div>
+    <input type="text" class="search" placeholder="Buscar proyecto..." id="search">
+    <button class="add-btn" id="addProjectBtn">+ Nuevo Proyecto</button>
+  </div>
+
+  <div class="week-view">
+    <h2>⟶ Esta semana</h2>
+    <div class="week-tasks" id="weekTasks"></div>
+  </div>
+
+  <div class="grid" id="projectGrid"></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+const CLIENT_ID = '632850738128-gt3a6k3jkrokrg91s6bd6m0sgmbb4jle.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const FILE_NAME = 'centro-proyectos-data.json';
+
+let tokenClient;
+let accessToken = null;
+let fileId = null;
+let proyectos = [];
+let saveTimeout = null;
+
+// ============================================================
+// INICIALIZACIÓN GOOGLE
+// ============================================================
+function gapiLoaded() {
+  gapi.load('client', async () => {
+    await gapi.client.init({
+      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+    });
+    checkReady();
+  });
+}
+
+function gisLoaded() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (response) => {
+      if (response.error) {
+        showSyncError('Error de autenticación');
+        return;
+      }
+      accessToken = response.access_token;
+      localStorage.setItem('cp_token', accessToken);
+      localStorage.setItem('cp_token_time', Date.now().toString());
+      await onAuthSuccess();
+    }
+  });
+  checkReady();
+}
+
+let gapiReady = false, gisReady = false;
+function checkReady() {
+  if (typeof gapi !== 'undefined' && gapi.client) gapiReady = true;
+  if (typeof tokenClient !== 'undefined') gisReady = true;
+  if (gapiReady && gisReady) {
+    const btn = document.getElementById('loginBtn');
+    const btnText = document.getElementById('loginBtnText');
+    btn.disabled = false;
+    btnText.textContent = 'Conectar con Google Drive';
+
+    // Auto-login si hay token guardado y reciente (< 50 min)
+    const savedToken = localStorage.getItem('cp_token');
+    const savedTime = parseInt(localStorage.getItem('cp_token_time') || '0');
+    if (savedToken && (Date.now() - savedTime) < 50 * 60 * 1000) {
+      accessToken = savedToken;
+      gapi.client.setToken({ access_token: accessToken });
+      onAuthSuccess();
+    }
+  }
+}
+
+// Esperar a que las librerías carguen
+const waitForLibs = setInterval(() => {
+  if (typeof gapi !== 'undefined' && typeof google !== 'undefined' && google.accounts) {
+    clearInterval(waitForLibs);
+    gapiLoaded();
+    gisLoaded();
+  }
+}, 100);
+
+document.getElementById('loginBtn').addEventListener('click', () => {
+  tokenClient.requestAccessToken({ prompt: '' });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('cp_token');
+  localStorage.removeItem('cp_token_time');
+  if (accessToken) google.accounts.oauth2.revoke(accessToken, () => {});
+  location.reload();
+});
+
+// ============================================================
+// AUTH SUCCESS → CARGAR DATOS
+// ============================================================
+async function onAuthSuccess() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  gapi.client.setToken({ access_token: accessToken });
+
+  showSyncStatus('Cargando datos...', 'saving');
+  try {
+    await loadOrCreateFile();
+    render();
+    showSyncStatus('Drive conectado', 'connected');
+  } catch (err) {
+    console.error(err);
+    showSyncError('Error al cargar: ' + err.message);
+  }
+}
+
+async function loadOrCreateFile() {
+  // Buscar el archivo
+  const res = await gapi.client.drive.files.list({
+    q: `name='${FILE_NAME}' and trashed=false`,
+    fields: 'files(id, name, modifiedTime)',
+    spaces: 'drive'
+  });
+
+  if (res.result.files && res.result.files.length > 0) {
+    fileId = res.result.files[0].id;
+    const modTime = new Date(res.result.files[0].modifiedTime);
+    document.getElementById('metaInfo').textContent =
+      `Última modificación: ${modTime.toLocaleString('es-ES')}`;
+
+    // Descargar contenido
+    const content = await gapi.client.drive.files.get({
+      fileId: fileId,
+      alt: 'media'
+    });
+
+    try {
+      const data = typeof content.result === 'string'
+        ? JSON.parse(content.result)
+        : content.result;
+      proyectos = data.proyectos || [];
+    } catch {
+      proyectos = [];
+    }
+  } else {
+    // Crear archivo nuevo con datos vacíos
+    proyectos = [];
+    await createFile();
+    document.getElementById('metaInfo').textContent = 'Archivo recién creado en tu Drive';
+  }
+}
+
+async function createFile() {
+  const metadata = {
+    name: FILE_NAME,
+    mimeType: 'application/json'
+  };
+  const data = JSON.stringify({
+    version: 1,
+    proyectos: proyectos,
+    updated: new Date().toISOString()
+  }, null, 2);
+
+  const boundary = '-------centroproyectos';
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelim = `\r\n--${boundary}--`;
+
+  const body =
+    delimiter +
+    'Content-Type: application/json\r\n\r\n' +
+    JSON.stringify(metadata) +
+    delimiter +
+    'Content-Type: application/json\r\n\r\n' +
+    data +
+    closeDelim;
+
+  const res = await gapi.client.request({
+    path: '/upload/drive/v3/files',
+    method: 'POST',
+    params: { uploadType: 'multipart' },
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body: body
+  });
+
+  fileId = res.result.id;
+}
+
+async function saveToDrive() {
+  if (!fileId) return;
+  showSyncStatus('Guardando...', 'saving');
+
+  const data = JSON.stringify({
+    version: 1,
+    proyectos: proyectos,
+    updated: new Date().toISOString()
+  }, null, 2);
+
+  try {
+    await gapi.client.request({
+      path: `/upload/drive/v3/files/${fileId}`,
+      method: 'PATCH',
+      params: { uploadType: 'media' },
+      body: data
+    });
+    document.getElementById('metaInfo').textContent =
+      `Última modificación: ${new Date().toLocaleString('es-ES')}`;
+    showSyncStatus('Drive conectado', 'connected');
+  } catch (err) {
+    console.error(err);
+    showSyncError('Error al guardar');
+  }
+}
+
+// Auto-save con debounce
+function scheduleSave() {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveToDrive, 800);
+}
+
+function showSyncStatus(text, state) {
+  const indicator = document.getElementById('syncIndicator');
+  indicator.className = 'sync-indicator ' + state;
+  document.getElementById('syncText').textContent = text;
+}
+
+function showSyncError(msg) {
+  showSyncStatus(msg, 'error');
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+const grid = document.getElementById('projectGrid');
+const weekTasks = document.getElementById('weekTasks');
+const modal = document.getElementById('modal');
+const modalContent = document.getElementById('modalContent');
+const search = document.getElementById('search');
+
+function render() {
+  const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
+  renderCards(activeFilter, search.value);
+  renderWeekTasks();
+}
+
+function renderCards(filter = 'all', searchTerm = '') {
+  const filtered = proyectos.filter(p => {
+    const matchFilter = filter === 'all' || p.estado === filter;
+    const matchSearch = !searchTerm ||
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.tags || []).some(t => t.includes(searchTerm.toLowerCase()));
+    return matchFilter && matchSearch;
+  });
+
+  if (proyectos.length === 0) {
+    grid.innerHTML = `<div class="empty-hint" style="grid-column: 1/-1;">
+      Aún no hay proyectos.<br>
+      Empieza creando uno con el botón <strong>+ Nuevo Proyecto</strong> arriba.
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.length ? filtered.map(p => `
+    <article class="card" data-status="${p.estado}" data-id="${p.id}">
+      <div class="card-header">
+        <span class="card-id">${p.id}</span>
+        <span class="status-badge">${p.estado}</span>
+      </div>
+      <h3>${escapeHtml(p.nombre)}</h3>
+      <p class="description">${escapeHtml(p.descripcion || '')}</p>
+      <div class="progress-section">
+        <div class="progress-label">
+          <span>Progreso</span>
+          <span>${p.progreso || 0}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: ${p.progreso || 0}%"></div>
+        </div>
+      </div>
+      <div class="next-step">
+        <span class="label">Próximo paso</span>
+        <span class="text">${escapeHtml(p.proximoPaso || '—')}</span>
+      </div>
+      <div class="tags">
+        ${(p.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}
+      </div>
+    </article>
+  `).join('') : '<div class="empty-hint" style="grid-column: 1/-1;">No hay proyectos que coincidan</div>';
+
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => openProject(card.dataset.id));
+  });
+}
+
+function renderWeekTasks() {
+  const tasks = proyectos
+    .filter(p => p.estado === 'activo' || p.estado === 'planificacion')
+    .filter(p => p.proximoPaso)
+    .map(p => ({ proj: p.nombre, task: p.proximoPaso, id: p.id }));
+
+  weekTasks.innerHTML = tasks.length ? tasks.map(t => `
+    <div class="week-task" data-id="${t.id}">
+      <div class="proj">${escapeHtml(t.proj)}</div>
+      <div class="task">${escapeHtml(t.task)}</div>
+    </div>
+  `).join('') : '<div style="color: var(--accent-soft); font-style: italic;">No hay tareas pendientes para esta semana</div>';
+
+  document.querySelectorAll('.week-task').forEach(t => {
+    t.addEventListener('click', () => openProject(t.dataset.id));
+  });
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ============================================================
+// MODAL DE PROYECTO
+// ============================================================
+function openProject(id) {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
+  if (!p.roadmap) p.roadmap = [];
+  if (!p.tags) p.tags = [];
+
+  modalContent.innerHTML = `
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+      <span class="card-id">${p.id}</span>
+    </div>
+    <h2 class="editable" contenteditable="true" data-field="nombre" data-id="${p.id}">${escapeHtml(p.nombre)}</h2>
+    <p class="subtitle editable" contenteditable="true" data-field="descripcion" data-id="${p.id}">${escapeHtml(p.descripcion || 'Añade una descripción...')}</p>
+
+    <div class="modal-controls">
+      <span class="control-label">Estado:</span>
+      <select data-field="estado" data-id="${p.id}">
+        <option value="activo" ${p.estado === 'activo' ? 'selected' : ''}>Activo</option>
+        <option value="pausado" ${p.estado === 'pausado' ? 'selected' : ''}>Pausado</option>
+        <option value="planificacion" ${p.estado === 'planificacion' ? 'selected' : ''}>Planificación</option>
+        <option value="completado" ${p.estado === 'completado' ? 'selected' : ''}>Completado</option>
+      </select>
+      <span class="control-label">Progreso:</span>
+      <input type="number" class="progress-input" min="0" max="100" value="${p.progreso || 0}" data-field="progreso" data-id="${p.id}">%
+      <span class="control-label">Etiquetas:</span>
+      <input type="text" class="progress-input" style="width: 200px;" value="${(p.tags || []).join(', ')}" data-field="tags" data-id="${p.id}" placeholder="separadas por coma">
+      <button class="danger-btn" onclick="deleteProject('${p.id}')">Eliminar proyecto</button>
+    </div>
+
+    <div class="modal-section">
+      <h3>Próximo paso</h3>
+      <div class="editable" contenteditable="true" data-field="proximoPaso" data-id="${p.id}"
+        style="padding: 12px 16px; background: var(--paper-warm); border-radius: 8px; font-size: 15px;">
+        ${escapeHtml(p.proximoPaso || 'Define el próximo paso...')}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Tareas</h3>
+      <div class="kanban">
+        <div class="column">
+          <h4>Por hacer · ${p.tareas.porHacer.length}</h4>
+          ${p.tareas.porHacer.map((t, i) => `
+            <div class="task-card">
+              <span>${escapeHtml(t)}</span>
+              <div class="task-actions">
+                <button onclick="moveTask('${p.id}', 'porHacer', 'enCurso', ${i})" title="A en curso">→</button>
+                <button onclick="deleteTask('${p.id}', 'porHacer', ${i})" title="Eliminar">×</button>
+              </div>
+            </div>
+          `).join('')}
+          <div class="add-task-form">
+            <input type="text" placeholder="Nueva tarea..." onkeydown="if(event.key==='Enter') addTask('${p.id}', 'porHacer', this)">
+            <button onclick="addTask('${p.id}', 'porHacer', this.previousElementSibling)">+</button>
+          </div>
+        </div>
+        <div class="column">
+          <h4>En curso · ${p.tareas.enCurso.length}</h4>
+          ${p.tareas.enCurso.map((t, i) => `
+            <div class="task-card priority">
+              <span>${escapeHtml(t)}</span>
+              <div class="task-actions">
+                <button onclick="moveTask('${p.id}', 'enCurso', 'porHacer', ${i})" title="Volver">←</button>
+                <button onclick="moveTask('${p.id}', 'enCurso', 'hecho', ${i})" title="A hecho">→</button>
+                <button onclick="deleteTask('${p.id}', 'enCurso', ${i})">×</button>
+              </div>
+            </div>
+          `).join('')}
+          <div class="add-task-form">
+            <input type="text" placeholder="Nueva tarea..." onkeydown="if(event.key==='Enter') addTask('${p.id}', 'enCurso', this)">
+            <button onclick="addTask('${p.id}', 'enCurso', this.previousElementSibling)">+</button>
+          </div>
+        </div>
+        <div class="column">
+          <h4>Hecho · ${p.tareas.hecho.length}</h4>
+          ${p.tareas.hecho.map((t, i) => `
+            <div class="task-card" style="opacity:0.6;">
+              <span>${escapeHtml(t)}</span>
+              <div class="task-actions">
+                <button onclick="moveTask('${p.id}', 'hecho', 'enCurso', ${i})" title="Volver">←</button>
+                <button onclick="deleteTask('${p.id}', 'hecho', ${i})">×</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>
+        Hoja de ruta
+        <button class="small-add" onclick="addRoadmapItem('${p.id}')">+ Añadir hito</button>
+      </h3>
+      <div id="roadmap-list">
+        ${p.roadmap.map((r, i) => `
+          <div class="roadmap-item">
+            <div class="roadmap-marker ${r.estado || 'current'}"
+              onclick="cycleRoadmapStatus('${p.id}', ${i})"
+              title="Click para cambiar estado"></div>
+            <input type="text" class="roadmap-when" value="${escapeHtml(r.fecha || '')}"
+              placeholder="cuándo"
+              data-rid="${p.id}" data-ridx="${i}" data-rfield="fecha">
+            <input type="text" class="roadmap-what" value="${escapeHtml(r.texto || '')}"
+              placeholder="qué"
+              data-rid="${p.id}" data-ridx="${i}" data-rfield="texto">
+            <button class="roadmap-delete" onclick="deleteRoadmapItem('${p.id}', ${i})">×</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Notas</h3>
+      <textarea class="notes-area" data-field="notas" data-id="${p.id}"
+        placeholder="Anotaciones, decisiones, ideas...">${escapeHtml(p.notas || '')}</textarea>
+    </div>
+  `;
+
+  // Event listeners para edición
+  modalContent.querySelectorAll('[contenteditable="true"]').forEach(el => {
+    el.addEventListener('blur', handleEdit);
+  });
+  modalContent.querySelectorAll('select, input, textarea').forEach(el => {
+    if (el.dataset.field) el.addEventListener('change', handleEdit);
+    if (el.dataset.field === 'notas' || el.dataset.field === 'tags' || el.dataset.field === 'progreso') {
+      el.addEventListener('input', debounceEdit);
+    }
+    if (el.dataset.rfield) {
+      el.addEventListener('change', handleRoadmapEdit);
+      el.addEventListener('input', debounceEdit);
+    }
+  });
+
+  modal.classList.add('open');
+}
+
+let editTimeout;
+function debounceEdit(e) {
+  clearTimeout(editTimeout);
+  editTimeout = setTimeout(() => handleEdit(e), 500);
+}
+
+function handleEdit(e) {
+  const el = e.target;
+  const id = el.dataset.id;
+  const field = el.dataset.field;
+  if (!id || !field) {
+    if (el.dataset.rfield) return handleRoadmapEdit(e);
+    return;
+  }
+
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+
+  let value = el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+    ? el.value
+    : el.textContent.trim();
+
+  if (field === 'progreso') value = parseInt(value) || 0;
+  if (field === 'tags') value = value.split(',').map(t => t.trim()).filter(Boolean);
+  if (field === 'descripcion' && value === 'Añade una descripción...') value = '';
+  if (field === 'proximoPaso' && value === 'Define el próximo paso...') value = '';
+
+  p[field] = value;
+  scheduleSave();
+  render();
+}
+
+function handleRoadmapEdit(e) {
+  const el = e.target;
+  const id = el.dataset.rid;
+  const idx = parseInt(el.dataset.ridx);
+  const field = el.dataset.rfield;
+  const p = proyectos.find(x => x.id === id);
+  if (!p || !p.roadmap[idx]) return;
+  p.roadmap[idx][field] = el.value;
+  scheduleSave();
+}
+
+window.closeModal = () => modal.classList.remove('open');
+modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+window.addTask = (id, col, input) => {
+  const text = input.value.trim();
+  if (!text) return;
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
+  p.tareas[col].push(text);
+  scheduleSave();
+  openProject(id);
+};
+
+window.deleteTask = (id, col, idx) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  p.tareas[col].splice(idx, 1);
+  scheduleSave();
+  openProject(id);
+};
+
+window.moveTask = (id, from, to, idx) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  const task = p.tareas[from].splice(idx, 1)[0];
+  p.tareas[to].push(task);
+  scheduleSave();
+  openProject(id);
+};
+
+window.addRoadmapItem = (id) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  if (!p.roadmap) p.roadmap = [];
+  p.roadmap.push({ fecha: '', texto: '', estado: 'future' });
+  scheduleSave();
+  openProject(id);
+};
+
+window.deleteRoadmapItem = (id, idx) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  p.roadmap.splice(idx, 1);
+  scheduleSave();
+  openProject(id);
+};
+
+window.cycleRoadmapStatus = (id, idx) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p || !p.roadmap[idx]) return;
+  const cycle = { future: 'current', current: 'done', done: 'future' };
+  p.roadmap[idx].estado = cycle[p.roadmap[idx].estado || 'future'];
+  scheduleSave();
+  openProject(id);
+};
+
+window.deleteProject = (id) => {
+  if (!confirm('¿Eliminar este proyecto? Esta acción no se puede deshacer.')) return;
+  proyectos = proyectos.filter(p => p.id !== id);
+  scheduleSave();
+  closeModal();
+  render();
+};
+
+// ============================================================
+// CREAR PROYECTO
+// ============================================================
+document.getElementById('addProjectBtn').addEventListener('click', () => {
+  const nombre = prompt('Nombre del proyecto:');
+  if (!nombre) return;
+  const nextNum = (proyectos.length + 1).toString().padStart(3, '0');
+  const newProject = {
+    id: 'P-' + nextNum,
+    nombre: nombre.trim(),
+    descripcion: '',
+    estado: 'planificacion',
+    progreso: 0,
+    proximoPaso: '',
+    tags: [],
+    tareas: { porHacer: [], enCurso: [], hecho: [] },
+    roadmap: [],
+    notas: '',
+    creado: new Date().toISOString()
+  };
+  proyectos.push(newProject);
+  scheduleSave();
+  render();
+  openProject(newProject.id);
+});
+
+// ============================================================
+// FILTROS Y BÚSQUEDA
+// ============================================================
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  });
+});
+
+search.addEventListener('input', render);
+</script>
+
+</body>
+</html>
