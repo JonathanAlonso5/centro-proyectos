@@ -535,6 +535,36 @@
     gap: 8px;
   }
   .task-card.priority { border-left-color: var(--accent); }
+  .task-card .drag-handle {
+    color: var(--line);
+    cursor: grab;
+    touch-action: none;
+    flex-shrink: 0;
+    line-height: 1;
+    font-size: 14px;
+    letter-spacing: -2px;
+    padding: 0 4px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .task-card .drag-handle:hover { color: var(--accent); }
+  .task-card.dragging {
+    opacity: 0.85;
+    box-shadow: 0 14px 36px rgba(26,24,20,0.25);
+    transform: rotate(1.5deg) scale(1.02);
+    cursor: grabbing;
+    z-index: 1000;
+  }
+  .task-card .drag-handle:active { cursor: grabbing; }
+  .column.dropzone {
+    transition: background 0.15s, outline 0.15s;
+    outline: 2px dashed transparent;
+    outline-offset: -4px;
+  }
+  .column.drag-over {
+    background: rgba(200,75,29,0.08);
+    outline-color: var(--accent);
+  }
   .task-card .task-actions {
     display: flex;
     gap: 4px;
@@ -542,6 +572,10 @@
     transition: opacity 0.2s;
   }
   .task-card:hover .task-actions { opacity: 1; }
+  /* On touch devices, always show actions (no hover) */
+  @media (hover: none) {
+    .task-card .task-actions { opacity: 1; }
+  }
   .task-card button {
     background: none;
     border: none;
@@ -680,34 +714,103 @@
     50% { opacity: 0.4; }
   }
   @media (max-width: 640px) {
-    header, .toolbar, .grid, .week-view { padding-left: 20px; padding-right: 20px; }
-    .toolbar { gap: 12px; padding-top: 16px; padding-bottom: 16px; }
+    /* === Mobile-first === */
+    header { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+    .logo { font-size: 22px; }
+    .meta { font-size: 10px; }
+    .header-right { width: 100%; justify-content: space-between; }
+
+    .toolbar { padding: 14px 16px; gap: 10px; }
     .filter-group {
       width: 100%;
       flex-wrap: wrap;
       justify-content: flex-start;
+      padding: 4px;
     }
-    .filter-btn { flex: 0 0 auto; padding: 8px 12px; }
+    .filter-btn {
+      flex: 0 0 auto;
+      padding: 9px 14px;
+      font-size: 11px;
+      min-height: 36px;
+    }
     .search {
       flex: 1 1 100%;
       max-width: none;
       order: 2;
+      padding: 12px 14px;
+      font-size: 16px; /* prevent iOS zoom on focus */
+      min-height: 44px;
     }
     .add-btn {
       flex: 1 1 100%;
       margin-left: 0;
       text-align: center;
-      padding: 12px 18px;
+      padding: 14px 18px;
+      font-size: 12px;
       order: 3;
+      min-height: 48px;
     }
-    .week-view { margin: 20px; }
-    .grid { padding: 0 20px 20px; grid-template-columns: 1fr; }
-    .kanban { grid-template-columns: 1fr; }
-    .modal { padding: 20px; }
-    /* Header tighter on mobile so it doesn't push content down */
-    header { padding: 16px 20px; flex-wrap: wrap; gap: 8px; }
-    .logo { font-size: 22px; }
-    .header-right { width: 100%; justify-content: space-between; }
+
+    .week-view { margin: 16px; padding: 18px; }
+    .week-view h2 { font-size: 12px; margin-bottom: 12px; }
+    .week-task { padding: 14px 16px; }
+    .week-task .task { font-size: 14px; line-height: 1.35; }
+    .week-tasks { grid-template-columns: 1fr; gap: 8px; }
+
+    .grid { padding: 0 16px 80px; grid-template-columns: 1fr; gap: 14px; }
+    .card { padding: 18px 18px 16px; }
+    .card h3 { font-size: 19px; }
+    .card .description { font-size: 13px; margin-bottom: 12px; }
+    .progress-section { margin-bottom: 12px; }
+
+    /* Modal -> full screen takeover on mobile */
+    .modal-overlay.open { padding: 0; align-items: stretch; }
+    .modal {
+      max-width: 100%;
+      max-height: 100vh;
+      width: 100%;
+      height: 100vh;
+      border-radius: 0;
+      padding: 64px 18px 24px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .modal-close {
+      top: 14px;
+      right: 14px;
+      width: 40px;
+      height: 40px;
+      font-size: 26px;
+      background: var(--paper-warm);
+    }
+    .modal h2 { font-size: 26px; }
+    .modal .subtitle { font-size: 14px; }
+    .modal-controls { gap: 10px; }
+    .danger-btn { margin-left: 0; width: 100%; text-align: center; padding: 10px; min-height: 44px; }
+
+    .kanban {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .column { padding: 14px 12px; }
+    .column h4 { font-size: 12px; }
+
+    .task-card {
+      padding: 14px 12px;
+      font-size: 14px;
+      line-height: 1.4;
+      min-height: 44px;
+    }
+    .task-card .drag-handle { font-size: 18px; padding: 0 6px; }
+
+    .add-task-form input { min-height: 40px; padding: 10px 12px; font-size: 16px; }
+    .add-task-form button { min-width: 40px; min-height: 40px; }
+
+    .roadmap-when { width: 80px; font-size: 10px; }
+    .roadmap-what { font-size: 14px; }
+    .roadmap-delete { opacity: 1; padding: 8px 10px; }
+
+    .notes-area { font-size: 16px; }
   }
 </style>
 </head>
@@ -1138,11 +1241,12 @@ function openProject(id) {
     <div class="modal-section">
       <h3>Tareas</h3>
       <div class="kanban">
-        <div class="column">
+        <div class="column" data-col="porHacer" data-pid="${p.id}">
           <h4>Por hacer · ${p.tareas.porHacer.length}</h4>
           ${p.tareas.porHacer.map((t, i) => `
-            <div class="task-card">
-              <span>${escapeHtml(t)}</span>
+            <div class="task-card" data-col="porHacer" data-idx="${i}" data-pid="${p.id}">
+              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
+              <span class="task-text">${escapeHtml(t)}</span>
               <div class="task-actions">
                 <button onclick="moveTask('${p.id}', 'porHacer', 'enCurso', ${i})" title="A en curso">→</button>
                 <button onclick="deleteTask('${p.id}', 'porHacer', ${i})" title="Eliminar">×</button>
@@ -1154,11 +1258,12 @@ function openProject(id) {
             <button onclick="addTask('${p.id}', 'porHacer', this.previousElementSibling)">+</button>
           </div>
         </div>
-        <div class="column">
+        <div class="column" data-col="enCurso" data-pid="${p.id}">
           <h4>En curso · ${p.tareas.enCurso.length}</h4>
           ${p.tareas.enCurso.map((t, i) => `
-            <div class="task-card priority">
-              <span>${escapeHtml(t)}</span>
+            <div class="task-card priority" data-col="enCurso" data-idx="${i}" data-pid="${p.id}">
+              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
+              <span class="task-text">${escapeHtml(t)}</span>
               <div class="task-actions">
                 <button onclick="moveTask('${p.id}', 'enCurso', 'porHacer', ${i})" title="Volver">←</button>
                 <button onclick="moveTask('${p.id}', 'enCurso', 'hecho', ${i})" title="A hecho">→</button>
@@ -1171,11 +1276,12 @@ function openProject(id) {
             <button onclick="addTask('${p.id}', 'enCurso', this.previousElementSibling)">+</button>
           </div>
         </div>
-        <div class="column">
+        <div class="column" data-col="hecho" data-pid="${p.id}">
           <h4>Hecho · ${p.tareas.hecho.length}</h4>
           ${p.tareas.hecho.map((t, i) => `
-            <div class="task-card" style="opacity:0.6;">
-              <span>${escapeHtml(t)}</span>
+            <div class="task-card" style="opacity:0.6;" data-col="hecho" data-idx="${i}" data-pid="${p.id}">
+              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
+              <span class="task-text">${escapeHtml(t)}</span>
               <div class="task-actions">
                 <button onclick="moveTask('${p.id}', 'hecho', 'enCurso', ${i})" title="Volver">←</button>
                 <button onclick="deleteTask('${p.id}', 'hecho', ${i})">×</button>
@@ -1231,7 +1337,85 @@ function openProject(id) {
     }
   });
 
+  setupDragDrop();
   modal.classList.add('open');
+}
+
+// Drag and drop tasks between kanban columns using Pointer Events
+// (works on touch and mouse). Long-press / handle-only drag avoids
+// stealing scroll. The handle is the ⋮⋮ glyph on the left of each task.
+function setupDragDrop() {
+  let drag = null;
+  const handles = modalContent.querySelectorAll('.task-card .drag-handle');
+  handles.forEach(handle => {
+    handle.addEventListener('pointerdown', onDown);
+  });
+  function onDown(e) {
+    e.preventDefault();
+    const card = e.target.closest('.task-card');
+    if (!card) return;
+    const fromCol = card.dataset.col;
+    const idx = parseInt(card.dataset.idx);
+    const pid = card.dataset.pid;
+    const rect = card.getBoundingClientRect();
+    drag = {
+      card, pid, fromCol, idx,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      ghostHeight: rect.height,
+      pointerId: e.pointerId
+    };
+    // Add a ghost spacer where the card was, so layout doesn't collapse
+    const ghost = document.createElement('div');
+    ghost.style.height = rect.height + 'px';
+    ghost.style.opacity = '0';
+    ghost.dataset.ghost = '1';
+    card.parentNode.insertBefore(ghost, card);
+    drag.ghost = ghost;
+    // Fix card size so it keeps its width when fixed-positioned
+    card.style.width = rect.width + 'px';
+    card.style.position = 'fixed';
+    card.style.left = (e.clientX - drag.offsetX) + 'px';
+    card.style.top = (e.clientY - drag.offsetY) + 'px';
+    card.classList.add('dragging');
+    document.querySelectorAll('.kanban .column').forEach(c => c.classList.add('dropzone'));
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+    if (navigator.vibrate) navigator.vibrate(20);
+  }
+  function onMove(e) {
+    if (!drag) return;
+    drag.card.style.left = (e.clientX - drag.offsetX) + 'px';
+    drag.card.style.top = (e.clientY - drag.offsetY) + 'px';
+    // Find column under pointer
+    document.querySelectorAll('.kanban .column').forEach(c => c.classList.remove('drag-over'));
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const col = under && under.closest('.kanban .column');
+    if (col) col.classList.add('drag-over');
+  }
+  function onUp(e) {
+    if (!drag) return;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    let target = null;
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    if (under) target = under.closest('.kanban .column');
+    document.querySelectorAll('.kanban .column').forEach(c => c.classList.remove('drag-over', 'dropzone'));
+    drag.card.classList.remove('dragging');
+    drag.card.style.position = '';
+    drag.card.style.left = '';
+    drag.card.style.top = '';
+    drag.card.style.width = '';
+    if (drag.ghost) drag.ghost.remove();
+    if (target && target.dataset.col && target.dataset.col !== drag.fromCol) {
+      const toCol = target.dataset.col;
+      // Reuse existing moveTask which handles save + re-render
+      moveTask(drag.pid, drag.fromCol, toCol, drag.idx);
+    }
+    drag = null;
+  }
 }
 
 let editTimeout;
