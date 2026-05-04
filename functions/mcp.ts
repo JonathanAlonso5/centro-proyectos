@@ -1,13 +1,24 @@
 // MCP server for Centro de Proyectos
-// Runs as a Cloudflare Pages Function on POST /mcp
-// Authenticates calls via Bearer MCP_SECRET, reads/writes the JSON file in
-// Jonathan's Drive using a Google Cloud Service Account.
+// Streamable HTTP transport (MCP spec 2025-03-26 + 2024-11-05 compat)
+//
+// POST /mcp with JSON-RPC body
+//   - initialize: returns serverInfo and issues Mcp-Session-Id response header
+//   - tools/list: returns the catalog
+//   - tools/call: executes the tool
+//   - notifications/*: returns 204
+// GET /mcp with Accept: text/event-stream
+//   - Returns a long-lived SSE stream (used by mcp-remote / Claude Desktop bridge
+//     to keep the connection alive and receive server-initiated messages)
+// GET /mcp without that Accept
+//   - Returns metadata as application/json (health check)
 
 interface Env {
-  SA_KEY: string;          // JSON string of the Service Account key
-  DRIVE_FILE_ID: string;   // Drive file id of centro-proyectos-data.json
-  MCP_SECRET: string;      // Shared secret for callers
+  SA_KEY: string;
+  DRIVE_FILE_ID: string;
+  MCP_SECRET: string;
 }
+
+const PROTOCOL_VERSION = "2024-11-05";
 
 // ---------- Tool catalog ----------
 
@@ -336,9 +347,9 @@ async function handleRpc(req: RpcRequest, env: Env): Promise<any | null> {
       jsonrpc: "2.0",
       id,
       result: {
-        protocolVersion: "2024-11-05",
-        capabilities: { tools: {} },
-        serverInfo: { name: "centro-proyectos-mcp", version: "0.1.0" }
+        protocolVersion: PROTOCOL_VERSION,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: { name: "centro-proyectos-mcp", version: "0.2.0" }
       }
     };
   }
@@ -366,7 +377,7 @@ async function handleRpc(req: RpcRequest, env: Env): Promise<any | null> {
     }
   }
 
-  // Notifications: no response
+  // Notifications: no response, but valid
   if (method.startsWith("notifications/") || method === "ping") return null;
 
   return {
@@ -378,10 +389,18 @@ async function handleRpc(req: RpcRequest, env: Env): Promise<any | null> {
 
 // ---------- HTTP entrypoints ----------
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, DELETE",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version, Accept",
+  "Access-Control-Expose-Headers": "Mcp-Session-Id",
+  "Access-Control-Max-Age": "86400"
+};
+
 function unauthorized(): Response {
   return new Response(JSON.stringify({ error: "unauthorized" }), {
     status: 401,
-    headers: { "Content-Type": "application/json" }
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS }
   });
 }
 
@@ -392,11 +411,18 @@ function checkAuth(request: Request, env: Env): boolean {
   return auth === expected;
 }
 
+export const onRequestOptions: PagesFunction<Env> = async () => {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+};
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.MCP_SECRET || !env.SA_KEY || !env.DRIVE_FILE_ID) {
     return new Response(
-      JSON.stringify({ error: "missing-env", missing: { MCP_SECRET: !env.MCP_SECRET, SA_KEY: !env.SA_KEY, DRIVE_FILE_ID: !env.DRIVE_FILE_ID } }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: "missing-env",
+        missing: { MCP_SECRET: !env.MCP_SECRET, SA_KEY: !env.SA_KEY, DRIVE_FILE_ID: !env.DRIVE_FILE_ID }
+      }),
+      { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
     );
   }
   if (!checkAuth(request, env)) return unauthorized();
@@ -407,30 +433,95 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } catch {
     return new Response(JSON.stringify({ error: "invalid-json" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS }
     });
   }
 
-  // Support batch
+  // Detect initialize to issue session ID
   const requests = Array.isArray(body) ? body : [body];
+  const isInitialize = requests.some(r => r?.method === "initialize");
+  const sessionId = isInitialize
+    ? crypto.randomUUID()
+    : request.headers.get("Mcp-Session-Id") || crypto.randomUUID();
+
   const results = await Promise.all(requests.map(r => handleRpc(r, env)));
   const filtered = results.filter(r => r !== null);
 
-  if (filtered.length === 0) return new Response(null, { status: 204 });
+  // No body for notifications-only requests
+  if (filtered.length === 0) {
+    return new Response(null, {
+      status: 202,
+      headers: { ...CORS_HEADERS, "Mcp-Session-Id": sessionId }
+    });
+  }
 
   const responseBody = Array.isArray(body) ? filtered : filtered[0];
+
+  // If client accepts SSE, we COULD stream — but plain JSON works per spec
+  // when there's a single response. Return JSON to keep it simple.
   return new Response(JSON.stringify(responseBody), {
-    headers: { "Content-Type": "application/json" }
+    headers: {
+      "Content-Type": "application/json",
+      "Mcp-Session-Id": sessionId,
+      ...CORS_HEADERS
+    }
   });
 };
 
-// Health check / discovery
-export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
+// GET handler:
+//   - If Accept includes text/event-stream → return long-lived SSE stream
+//   - Otherwise → return health JSON
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+  const accept = request.headers.get("Accept") || "";
+  const wantsSse = accept.includes("text/event-stream");
+
+  if (wantsSse) {
+    if (!checkAuth(request, env)) return unauthorized();
+
+    const sessionId = request.headers.get("Mcp-Session-Id") || crypto.randomUUID();
+    const enc = new TextEncoder();
+
+    const stream = new ReadableStream({
+      start(controller) {
+        // Send a comment immediately so the client knows we're alive.
+        controller.enqueue(enc.encode(": connected\n\n"));
+        // Keep-alive ping every 25s. Cloudflare Workers SSE has a max
+        // duration of ~30s for free / 5min on paid; we can't keep this
+        // open forever, but pings during the window prevent timeouts.
+        const interval = setInterval(() => {
+          try {
+            controller.enqueue(enc.encode(": keepalive " + Date.now() + "\n\n"));
+          } catch {
+            clearInterval(interval);
+          }
+        }, 25000);
+        // Note: there's no built-in "abort" notification on the stream
+        // here; the client closing will drop the response naturally.
+      },
+      cancel() {
+        // client disconnected
+      }
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+        "Mcp-Session-Id": sessionId,
+        ...CORS_HEADERS
+      }
+    });
+  }
+
+  // Plain GET — health/discovery
   return new Response(
     JSON.stringify({
       name: "centro-proyectos-mcp",
-      version: "0.1.0",
-      transport: "http",
+      version: "0.2.0",
+      transport: "Streamable HTTP",
+      protocolVersion: PROTOCOL_VERSION,
       methods: ["initialize", "tools/list", "tools/call"],
       tools: TOOLS.map(t => t.name),
       configured: {
@@ -439,6 +530,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         DRIVE_FILE_ID: !!env.DRIVE_FILE_ID
       }
     }, null, 2),
-    { headers: { "Content-Type": "application/json" } }
+    { headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
   );
+};
+
+// DELETE: spec says client may DELETE to close session. Just 200.
+export const onRequestDelete: PagesFunction<Env> = async () => {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
 };
