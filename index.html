@@ -850,10 +850,13 @@ async function onAuthSuccess() {
 }
 
 async function loadOrCreateFile() {
-  // Buscar el archivo
+  // Buscar el archivo (puede haber duplicados si se ha escrito desde un Skill
+  // que solo tiene create_file disponible; nos quedamos con el mas reciente y
+  // mandamos a la papelera los antiguos para limpiar el Drive sin intervencion)
   const res = await gapi.client.drive.files.list({
     q: `name='${FILE_NAME}' and trashed=false`,
     fields: 'files(id, name, modifiedTime)',
+    orderBy: 'modifiedTime desc',
     spaces: 'drive'
   });
 
@@ -862,6 +865,21 @@ async function loadOrCreateFile() {
     const modTime = new Date(res.result.files[0].modifiedTime);
     document.getElementById('metaInfo').textContent =
       `Última modificación: ${modTime.toLocaleString('es-ES')}`;
+
+    // Limpiar duplicados antiguos (los crea el Skill al "update" sin update API)
+    if (res.result.files.length > 1) {
+      console.log(`Encontrados ${res.result.files.length} duplicados de ${FILE_NAME}; mandando a papelera ${res.result.files.length - 1} antiguos`);
+      for (let i = 1; i < res.result.files.length; i++) {
+        try {
+          await gapi.client.drive.files.update({
+            fileId: res.result.files[i].id,
+            resource: { trashed: true }
+          });
+        } catch (e) {
+          console.warn('No se pudo trash duplicado', res.result.files[i].id, e);
+        }
+      }
+    }
 
     // Descargar contenido
     const content = await gapi.client.drive.files.get({
