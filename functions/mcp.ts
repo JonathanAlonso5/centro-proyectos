@@ -19,6 +19,7 @@ interface Env {
 }
 
 const PROTOCOL_VERSION = "2024-11-05";
+const DATA_FILE_NAME = "centro-proyectos-data.json";
 
 // ---------- Tool catalog ----------
 
@@ -199,6 +200,33 @@ async function getAccessToken(saKey: SAKey): Promise<string> {
 
 // ---------- Drive helpers ----------
 
+// Find the canonical fileId: the most recently modified, non-trashed file
+// with the canonical name. Mirrors what the web app does (loadOrCreateFile in
+// index.html). Trashing of older duplicates is left to the web app (which uses
+// OAuth and can trash files it owns).
+//
+// We pass the env-provided DRIVE_FILE_ID as a fallback in case the lookup
+// fails (e.g. Drive permissions blip). If we don't find any file by name, we
+// fall back to that id too — that keeps the server from breaking right after
+// a deploy if the lookup is slow.
+async function findCanonicalFileId(token: string, fallback: string): Promise<string> {
+  const url = new URL("https://www.googleapis.com/drive/v3/files");
+  url.searchParams.set("q", `name='${DATA_FILE_NAME}' and trashed=false`);
+  url.searchParams.set("orderBy", "modifiedTime desc");
+  url.searchParams.set("fields", "files(id,modifiedTime)");
+  url.searchParams.set("pageSize", "1");
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) {
+    console.warn(`findCanonicalFileId: list failed ${res.status}, using fallback`);
+    return fallback;
+  }
+  const data = (await res.json()) as { files?: Array<{ id: string }> };
+  if (data.files && data.files.length > 0) return data.files[0].id;
+  return fallback;
+}
+
 async function readDriveFile(token: string, fileId: string): Promise<any> {
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
@@ -228,7 +256,12 @@ async function writeDriveFile(token: string, fileId: string, data: any): Promise
 async function executeTool(name: string, args: any, env: Env): Promise<any> {
   const saKey: SAKey = JSON.parse(env.SA_KEY);
   const token = await getAccessToken(saKey);
-  const file = await readDriveFile(token, env.DRIVE_FILE_ID);
+  // Resolve the canonical fileId at request time: pick the most recent file
+  // with the canonical name, falling back to DRIVE_FILE_ID. This keeps the
+  // MCP in sync with the web (which also reads "most recent by name") even
+  // if the legacy skill creates duplicate files via create_file.
+  const fileId = await findCanonicalFileId(token, env.DRIVE_FILE_ID);
+  const file = await readDriveFile(token, fileId);
   if (!Array.isArray(file.proyectos)) throw new Error("Invalid data file: proyectos missing");
 
   const findProject = (id: string) => {
@@ -258,7 +291,7 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
         if (args[k] !== undefined) file.proyectos[idx][k] = args[k];
       }
       file.updated = new Date().toISOString();
-      await writeDriveFile(token, env.DRIVE_FILE_ID, file);
+      await writeDriveFile(token, fileId, file);
       return file.proyectos[idx];
     }
 
@@ -279,7 +312,7 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
       };
       file.proyectos.push(newP);
       file.updated = new Date().toISOString();
-      await writeDriveFile(token, env.DRIVE_FILE_ID, file);
+      await writeDriveFile(token, fileId, file);
       return newP;
     }
 
@@ -291,7 +324,7 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
       if (!["porHacer", "enCurso", "hecho"].includes(col)) throw new Error("Invalid column");
       p.tareas[col].push(args.text);
       file.updated = new Date().toISOString();
-      await writeDriveFile(token, env.DRIVE_FILE_ID, file);
+      await writeDriveFile(token, fileId, file);
       return { added: args.text, column: col, project: args.id };
     }
 
@@ -307,7 +340,7 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
       const task = p.tareas[from].splice(i, 1)[0];
       p.tareas.hecho.push(task);
       file.updated = new Date().toISOString();
-      await writeDriveFile(token, env.DRIVE_FILE_ID, file);
+      await writeDriveFile(token, fileId, file);
       return { completed: task, project: args.id };
     }
 
@@ -321,7 +354,7 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
         estado: args.estado ?? "future"
       });
       file.updated = new Date().toISOString();
-      await writeDriveFile(token, env.DRIVE_FILE_ID, file);
+      await writeDriveFile(token, fileId, file);
       return { added: args.texto, project: args.id };
     }
 
@@ -349,7 +382,7 @@ async function handleRpc(req: RpcRequest, env: Env): Promise<any | null> {
       result: {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "centro-proyectos-mcp", version: "0.2.0" }
+        serverInfo: { name: "centro-proyectos-mcp", version: "0.3.0" }
       }
     };
   }
@@ -519,11 +552,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   return new Response(
     JSON.stringify({
       name: "centro-proyectos-mcp",
-      version: "0.2.0",
+      version: "0.3.0",
       transport: "Streamable HTTP",
       protocolVersion: PROTOCOL_VERSION,
       methods: ["initialize", "tools/list", "tools/call"],
       tools: TOOLS.map(t => t.name),
+      fileResolution: "by-name (most recent non-trashed file named " + DATA_FILE_NAME + "); DRIVE_FILE_ID used only as fallback",
       configured: {
         MCP_SECRET: !!env.MCP_SECRET,
         SA_KEY: !!env.SA_KEY,
