@@ -1086,6 +1086,37 @@ async function saveToDrive() {
       params: { uploadType: 'media' },
       body: data
     });
+    // Dedupe-on-save: tras escribir, revisar si hay duplicados creados por
+    // la Drive skill (que usa create_file y no update). Trashear los que
+    // no son el fileId que acabamos de guardar. Esto complementa el
+    // dedupe-on-load para que las acciones de Claude (escribir vía skill)
+    // no acumulen duplicados visibles entre sesiones.
+    try {
+      const dupRes = await gapi.client.drive.files.list({
+        q: `name='${FILE_NAME}' and trashed=false`,
+        fields: 'files(id, modifiedTime)',
+        orderBy: 'modifiedTime desc',
+        spaces: 'drive',
+        pageSize: 100
+      });
+      const dupFiles = (dupRes.result.files || []).filter(f => f.id !== fileId);
+      if (dupFiles.length > 0) {
+        console.log(`dedupe-on-save: ${dupFiles.length} duplicados a la papelera`);
+        for (const f of dupFiles) {
+          try {
+            await gapi.client.drive.files.update({
+              fileId: f.id,
+              resource: { trashed: true }
+            });
+          } catch (e) {
+            console.warn('No se pudo trash duplicado', f.id, e);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('dedupe-on-save falló', e);
+    }
+
     document.getElementById('metaInfo').textContent =
       `Última modificación: ${new Date().toLocaleString('es-ES')}`;
     showSyncStatus('Drive conectado', 'connected');
