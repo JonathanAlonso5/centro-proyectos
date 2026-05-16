@@ -121,6 +121,18 @@ const TOOLS = [
         estado: { type: "string", enum: ["future", "current", "done"], description: "Default future" }
       }
     }
+  },
+  {
+    name: "cdp_delete_project",
+    description:
+      "Elimina un proyecto del CdP. Operacion destructiva: borra entrada completa (tareas, roadmap, notas).",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string" }
+      }
+    }
   }
 ];
 
@@ -356,6 +368,14 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
       file.updated = new Date().toISOString();
       await writeDriveFile(token, fileId, file);
       return { added: args.texto, project: args.id };
+    }
+
+    case "cdp_delete_project": {
+      const idx = findProject(args.id);
+      const removed = file.proyectos.splice(idx, 1)[0];
+      file.updated = new Date().toISOString();
+      await writeDriveFile(token, fileId, file);
+      return { deleted: args.id, nombre: removed?.nombre ?? null };
     }
 
     default:
