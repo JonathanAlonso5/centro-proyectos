@@ -848,6 +848,7 @@
         <span class="sync-dot"></span>
         <span id="syncText">Drive conectado</span>
       </div>
+      <button class="logout-btn" id="refreshBtn" title="Recargar datos desde Drive" aria-label="Recargar">↻</button>
       <button class="logout-btn" id="logoutBtn">Salir</button>
     </div>
   </header>
@@ -959,6 +960,54 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('cp_token_time');
   if (accessToken) google.accounts.oauth2.revoke(accessToken, () => {});
   location.reload();
+});
+
+// Botón Refresh: relectura forzada del Drive (busca el más reciente y
+// recarga proyectos). Útil cuando otra sesión / MCP ha escrito y el JS
+// local sigue con el fileId anterior.
+document.getElementById('refreshBtn').addEventListener('click', async () => {
+  if (!accessToken) { location.reload(); return; }
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = '…';
+  showSyncStatus('Recargando…', 'saving');
+  try {
+    // Resetear fileId fuerza a loadOrCreateFile a re-resolver el más reciente.
+    fileId = null;
+    await loadOrCreateFile();
+    render();
+    showSyncStatus('Drive conectado', 'connected');
+  } catch (err) {
+    console.error('Refresh failed:', err);
+    showSyncError('Error al recargar: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻';
+  }
+});
+
+// Auto-refresh al volver a la pestaña tras >30s ausentes. Detecta el
+// caso típico de móvil: usuario cambia de app, otra sesión escribe en
+// Drive, vuelve a la pestaña y debería ver datos frescos sin tocar nada.
+let lastVisibleAt = Date.now();
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    lastVisibleAt = Date.now();
+    return;
+  }
+  // Visible — si han pasado más de 30s sin ver la pestaña, recarga.
+  if (!accessToken || !fileId) return;
+  if (Date.now() - lastVisibleAt < 30_000) return;
+  try {
+    showSyncStatus('Actualizando…', 'saving');
+    fileId = null;
+    await loadOrCreateFile();
+    render();
+    showSyncStatus('Drive conectado', 'connected');
+  } catch (err) {
+    console.warn('Auto-refresh on visibility failed (silent):', err);
+    // No mostramos error visible — el usuario no pidió refresco activo.
+  }
 });
 
 // ============================================================
