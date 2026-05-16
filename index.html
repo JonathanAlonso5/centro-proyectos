@@ -1032,47 +1032,70 @@ async function onAuthSuccess() {
 async function loadOrCreateFile() {
   // Buscar el archivo (puede haber duplicados si se ha escrito desde un Skill
   // que solo tiene create_file disponible; nos quedamos con el mas reciente y
-  // mandamos a la papelera los antiguos para limpiar el Drive sin intervencion)
-  const res = await gapi.client.drive.files.list({
+  // mandamos a la papelera los antiguos para limpiar el Drive sin intervencion).
+  //
+  // FIX 2026-05-16: gapi.client.drive.files.list/get cacheaba respuestas en el
+  // navegador (especialmente en PWA móvil + SW). Tras escribir via MCP la web
+  // seguía viendo el listing y el contenido viejos. Sustituido por fetch directo
+  // con `cache: 'no-store'` + parámetro `_t` cache-bust para garantizar
+  // respuestas frescas siempre.
+  const listUrl = `https://www.googleapis.com/drive/v3/files?` + new URLSearchParams({
     q: `name='${FILE_NAME}' and trashed=false`,
-    fields: 'files(id, name, modifiedTime)',
+    fields: 'files(id,name,modifiedTime)',
     orderBy: 'modifiedTime desc',
-    spaces: 'drive'
+    spaces: 'drive',
+    pageSize: '50',
+    _t: String(Date.now())
   });
+  const listResp = await fetch(listUrl, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+    cache: 'no-store'
+  });
+  if (!listResp.ok) throw new Error(`Drive list HTTP ${listResp.status} ${await listResp.text()}`);
+  const listJson = await listResp.json();
+  const files = listJson.files || [];
 
-  if (res.result.files && res.result.files.length > 0) {
-    fileId = res.result.files[0].id;
-    const modTime = new Date(res.result.files[0].modifiedTime);
+  if (files.length > 0) {
+    fileId = files[0].id;
+    const modTime = new Date(files[0].modifiedTime);
     document.getElementById('metaInfo').textContent =
       `Última modificación: ${modTime.toLocaleString('es-ES')}`;
 
     // Limpiar duplicados antiguos (los crea el Skill al "update" sin update API)
-    if (res.result.files.length > 1) {
-      console.log(`Encontrados ${res.result.files.length} duplicados de ${FILE_NAME}; mandando a papelera ${res.result.files.length - 1} antiguos`);
-      for (let i = 1; i < res.result.files.length; i++) {
+    if (files.length > 1) {
+      console.log(`Encontrados ${files.length} duplicados de ${FILE_NAME}; mandando a papelera ${files.length - 1} antiguos`);
+      for (let i = 1; i < files.length; i++) {
         try {
-          await gapi.client.drive.files.update({
-            fileId: res.result.files[i].id,
-            resource: { trashed: true }
+          await fetch(`https://www.googleapis.com/drive/v3/files/${files[i].id}`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ trashed: true }),
+            cache: 'no-store'
           });
         } catch (e) {
-          console.warn('No se pudo trash duplicado', res.result.files[i].id, e);
+          console.warn('No se pudo trash duplicado', files[i].id, e);
         }
       }
     }
 
-    // Descargar contenido
-    const content = await gapi.client.drive.files.get({
-      fileId: fileId,
-      alt: 'media'
+    // Descargar contenido — también fetch directo no-store para bypass cache
+    const getUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&_t=${Date.now()}`;
+    const getResp = await fetch(getUrl, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store'
     });
-
+    if (!getResp.ok) throw new Error(`Drive get HTTP ${getResp.status}`);
+    const text = await getResp.text();
     try {
-      const data = typeof content.result === 'string'
-        ? JSON.parse(content.result)
-        : content.result;
+      const data = JSON.parse(text);
       proyectos = data.proyectos || [];
-    } catch {
+    } catch (e) {
+      console.error('JSON parse error:', e, text.slice(0, 200));
       proyectos = [];
     }
   } else {
