@@ -962,9 +962,19 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   location.reload();
 });
 
-// Botón Refresh: relectura forzada del Drive (busca el más reciente y
-// recarga proyectos). Útil cuando otra sesión / MCP ha escrito y el JS
-// local sigue con el fileId anterior.
+// Función de refresh expuesta globalmente para que pwa-init.js (interval
+// y cdpForceUpdate) la pueda llamar.
+window.cdpRefresh = async function () {
+  if (!accessToken) return;
+  // Resetear fileId fuerza a loadOrCreateFile a re-resolver el más reciente.
+  fileId = null;
+  await loadOrCreateFile();
+  render();
+};
+
+// Botón Refresh: fuerza chequeo de SW nuevo + relectura del Drive.
+// Útil cuando otra sesión / MCP ha escrito y el JS local sigue con el
+// fileId anterior, O cuando hay una versión nueva del HTML/SW pendiente.
 document.getElementById('refreshBtn').addEventListener('click', async () => {
   if (!accessToken) { location.reload(); return; }
   const btn = document.getElementById('refreshBtn');
@@ -972,10 +982,14 @@ document.getElementById('refreshBtn').addEventListener('click', async () => {
   btn.textContent = '…';
   showSyncStatus('Recargando…', 'saving');
   try {
-    // Resetear fileId fuerza a loadOrCreateFile a re-resolver el más reciente.
-    fileId = null;
-    await loadOrCreateFile();
-    render();
+    // cdpForceUpdate hace primero swRegistration.update() para detectar SW
+    // nuevo (que disparará banner si lo hay) y luego cdpRefresh para
+    // releer Drive.
+    if (typeof window.cdpForceUpdate === 'function') {
+      await window.cdpForceUpdate();
+    } else {
+      await window.cdpRefresh();
+    }
     showSyncStatus('Drive conectado', 'connected');
   } catch (err) {
     console.error('Refresh failed:', err);

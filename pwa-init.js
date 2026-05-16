@@ -6,9 +6,11 @@
   const REFRESH_MS = 5 * 60 * 1000;
   let lastFocusRefresh = Date.now();
 
+  let swRegistration = null;
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').then(reg => {
+        swRegistration = reg;
         reg.addEventListener('updatefound', () => {
           const nw = reg.installing;
           if (!nw) return;
@@ -18,6 +20,12 @@
             }
           });
         });
+        // Forzar chequeo de SW nuevo cada 5 min para que detecte deploys
+        // sin tener que esperar 24h del navegador.
+        setInterval(() => { reg.update().catch(() => {}); }, 5 * 60 * 1000);
+        // Y chequear inmediatamente al cargar (puede que ya hubiera un SW nuevo
+        // esperando desde antes).
+        reg.update().catch(() => {});
       }).catch(err => console.warn('SW register failed:', err));
     });
 
@@ -26,6 +34,16 @@
       if (!refreshing) { refreshing = true; location.reload(); }
     });
   }
+  // Exponer función global para forzar update SW + recarga datos.
+  // El botón ↻ del header la usa.
+  window.cdpForceUpdate = async function () {
+    if (swRegistration) {
+      try { await swRegistration.update(); } catch {}
+    }
+    if (typeof window.cdpRefresh === 'function') {
+      await window.cdpRefresh();
+    }
+  };
 
   function showUpdateBanner(reg) {
     const bar = document.createElement('div');
