@@ -890,6 +890,13 @@ let accessToken = null;
 let fileId = null;
 let proyectos = [];
 let saveTimeout = null;
+// Cola de operaciones pendientes de guardar. Cada mutación local encola una
+// operación SEMÁNTICA (mover tarea, editar campo…) en vez de "guardar todo el
+// array". Al hacer flush, releemos el fichero fresco de Drive y aplicamos solo
+// estas operaciones encima → nunca pisamos lo que escribió el MCP (Claude) ni
+// al revés. Ver saveToDrive/flushBatch. Corrige el bug de last-writer-wins.
+let pendingOps = [];
+let flushing = false;
 
 // ============================================================
 // INICIALIZACIÓN GOOGLE
@@ -1155,60 +1162,181 @@ async function createFile() {
   fileId = res.result.id;
 }
 
-async function saveToDrive() {
-  if (!fileId) return;
-  showSyncStatus('Guardando...', 'saving');
+// Encola una operación semántica y programa el flush con debounce.
+function queueOp(op) {
+  pendingOps.push(op);
+  scheduleSave();
+}
 
-  const data = JSON.stringify({
-    version: 1,
-    proyectos: proyectos,
-    updated: new Date().toISOString()
-  }, null, 2);
-
-  try {
-    await gapi.client.request({
-      path: `/upload/drive/v3/files/${fileId}`,
-      method: 'PATCH',
-      params: { uploadType: 'media' },
-      body: data
-    });
-    // Dedupe-on-save: tras escribir, revisar si hay duplicados creados por
-    // la Drive skill (que usa create_file y no update). Trashear los que
-    // no son el fileId que acabamos de guardar. Esto complementa el
-    // dedupe-on-load para que las acciones de Claude (escribir vía skill)
-    // no acumulen duplicados visibles entre sesiones.
-    try {
-      const dupRes = await gapi.client.drive.files.list({
-        q: `name='${FILE_NAME}' and trashed=false`,
-        fields: 'files(id, modifiedTime)',
-        orderBy: 'modifiedTime desc',
-        spaces: 'drive',
-        pageSize: 100
-      });
-      const dupFiles = (dupRes.result.files || []).filter(f => f.id !== fileId);
-      if (dupFiles.length > 0) {
-        console.log(`dedupe-on-save: ${dupFiles.length} duplicados a la papelera`);
-        for (const f of dupFiles) {
-          try {
-            await gapi.client.drive.files.update({
-              fileId: f.id,
-              resource: { trashed: true }
-            });
-          } catch (e) {
-            console.warn('No se pudo trash duplicado', f.id, e);
-          }
-        }
+// Aplica una tanda de operaciones sobre un array de proyectos FRESCO (recién
+// leído de Drive). Idempotente en lo posible: las tareas se identifican por su
+// texto, no por índice, para no romperse si otra sesión reordenó la columna.
+function applyOps(arr, ops) {
+  const find = pid => arr.find(x => x.id === pid);
+  const ensure = p => {
+    if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
+    if (!Array.isArray(p.roadmap)) p.roadmap = [];
+  };
+  for (const op of ops) {
+    if (op.t === 'addProject') {
+      let proj = op.project;
+      if (arr.some(x => x.id === proj.id)) {
+        // Colisión de id (otra sesión creó uno en medio): recalcular.
+        proj = { ...proj, id: 'P-' + (arr.length + 1).toString().padStart(3, '0') };
       }
-    } catch (e) {
-      console.warn('dedupe-on-save falló', e);
+      arr.push(proj);
+      continue;
     }
+    const p = find(op.pid);
+    if (!p) continue; // proyecto borrado en otra sesión → operación obsoleta
+    switch (op.t) {
+      case 'field':
+        p[op.field] = op.value;
+        break;
+      case 'addTask':
+        ensure(p);
+        p.tareas[op.col].push(op.text);
+        break;
+      case 'delTask': {
+        ensure(p);
+        const i = p.tareas[op.col].indexOf(op.text);
+        if (i >= 0) p.tareas[op.col].splice(i, 1);
+        break;
+      }
+      case 'moveTask': {
+        ensure(p);
+        const i = p.tareas[op.from].indexOf(op.text);
+        if (i >= 0) {
+          p.tareas[op.from].splice(i, 1);
+          p.tareas[op.to].push(op.text);
+        }
+        break;
+      }
+      case 'addRoadmap':
+        ensure(p);
+        p.roadmap.push(op.item);
+        break;
+      case 'delRoadmap':
+        ensure(p);
+        if (op.idx >= 0 && op.idx < p.roadmap.length) p.roadmap.splice(op.idx, 1);
+        break;
+      case 'rfield':
+        ensure(p);
+        if (p.roadmap[op.idx]) p.roadmap[op.idx][op.field] = op.value;
+        break;
+      case 'delProject': {
+        const idx = arr.findIndex(x => x.id === op.pid);
+        if (idx >= 0) arr.splice(idx, 1);
+        break;
+      }
+    }
+  }
+}
 
+// Escribe una tanda: relee el fichero fresco, aplica las ops encima y guarda.
+// Esto sustituye al "sobrescribir el array entero en memoria" que causaba que
+// la web pisara los cambios del MCP (tareas hechas que reaparecían).
+async function flushBatch(batch) {
+  const getUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&_t=${Date.now()}`;
+  const resp = await fetch(getUrl, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store'
+  });
+  if (!resp.ok) throw new Error(`Drive read HTTP ${resp.status}`);
+  let data;
+  try {
+    data = JSON.parse(await resp.text());
+  } catch (e) {
+    throw new Error('Fichero Drive ilegible al guardar: ' + e.message);
+  }
+  if (!Array.isArray(data.proyectos)) data.proyectos = [];
+
+  applyOps(data.proyectos, batch);
+  data.version = data.version || 1;
+  data.updated = new Date().toISOString();
+
+  const wResp = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data, null, 2)
+    }
+  );
+  if (!wResp.ok) throw new Error(`Drive write HTTP ${wResp.status}`);
+
+  // Adoptar la verdad fusionada localmente: así la UI refleja también lo que
+  // escribió Claude/MCP en paralelo, sin recargar toda la página.
+  proyectos = data.proyectos;
+  render();
+}
+
+// Dedupe-on-save: manda a papelera duplicados que la vieja Drive skill pudiera
+// crear con create_file. Se ejecuta una vez tras un flush con éxito.
+async function dedupeAfterSave() {
+  try {
+    const listUrl = `https://www.googleapis.com/drive/v3/files?` + new URLSearchParams({
+      q: `name='${FILE_NAME}' and trashed=false`,
+      fields: 'files(id,modifiedTime)',
+      orderBy: 'modifiedTime desc',
+      spaces: 'drive',
+      pageSize: '100',
+      _t: String(Date.now())
+    });
+    const r = await fetch(listUrl, {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (!r.ok) return;
+    const dupFiles = ((await r.json()).files || []).filter(f => f.id !== fileId);
+    for (const f of dupFiles) {
+      try {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trashed: true }),
+          cache: 'no-store'
+        });
+      } catch (e) {
+        console.warn('No se pudo trash duplicado', f.id, e);
+      }
+    }
+  } catch (e) {
+    console.warn('dedupe-on-save falló', e);
+  }
+}
+
+async function saveToDrive() {
+  if (!fileId || flushing || pendingOps.length === 0) return;
+  flushing = true;
+  showSyncStatus('Guardando...', 'saving');
+  try {
+    // Drenar todas las ops que se hayan ido acumulando, por tandas.
+    while (pendingOps.length) {
+      const batch = pendingOps.splice(0);
+      try {
+        await flushBatch(batch);
+      } catch (e) {
+        // Devolver la tanda al frente de la cola para reintentar más tarde.
+        pendingOps.unshift(...batch);
+        throw e;
+      }
+    }
+    await dedupeAfterSave();
     document.getElementById('metaInfo').textContent =
       `Última modificación: ${new Date().toLocaleString('es-ES')}`;
     showSyncStatus('Drive conectado', 'connected');
   } catch (err) {
     console.error(err);
     showSyncError('Error al guardar');
+  } finally {
+    flushing = false;
+    // Si llegaron ops nuevas (o falló el flush), reprogramar.
+    if (pendingOps.length) scheduleSave();
   }
 }
 
@@ -1568,7 +1696,7 @@ function handleEdit(e) {
   if (field === 'proximoPaso' && value === 'Define el próximo paso...') value = '';
 
   p[field] = value;
-  scheduleSave();
+  queueOp({ t: 'field', pid: id, field, value });
   render();
 }
 
@@ -1580,7 +1708,7 @@ function handleRoadmapEdit(e) {
   const p = proyectos.find(x => x.id === id);
   if (!p || !p.roadmap[idx]) return;
   p.roadmap[idx][field] = el.value;
-  scheduleSave();
+  queueOp({ t: 'rfield', pid: id, idx, field, value: el.value });
 }
 
 window.closeModal = () => modal.classList.remove('open');
@@ -1593,15 +1721,16 @@ window.addTask = (id, col, input) => {
   if (!p) return;
   if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
   p.tareas[col].push(text);
-  scheduleSave();
+  queueOp({ t: 'addTask', pid: id, col, text });
   openProject(id);
 };
 
 window.deleteTask = (id, col, idx) => {
   const p = proyectos.find(x => x.id === id);
   if (!p) return;
+  const text = p.tareas[col][idx];
   p.tareas[col].splice(idx, 1);
-  scheduleSave();
+  queueOp({ t: 'delTask', pid: id, col, text });
   openProject(id);
 };
 
@@ -1610,7 +1739,7 @@ window.moveTask = (id, from, to, idx) => {
   if (!p) return;
   const task = p.tareas[from].splice(idx, 1)[0];
   p.tareas[to].push(task);
-  scheduleSave();
+  queueOp({ t: 'moveTask', pid: id, from, to, text: task });
   openProject(id);
 };
 
@@ -1618,8 +1747,9 @@ window.addRoadmapItem = (id) => {
   const p = proyectos.find(x => x.id === id);
   if (!p) return;
   if (!p.roadmap) p.roadmap = [];
-  p.roadmap.push({ fecha: '', texto: '', estado: 'future' });
-  scheduleSave();
+  const item = { fecha: '', texto: '', estado: 'future' };
+  p.roadmap.push(item);
+  queueOp({ t: 'addRoadmap', pid: id, item });
   openProject(id);
 };
 
@@ -1627,7 +1757,7 @@ window.deleteRoadmapItem = (id, idx) => {
   const p = proyectos.find(x => x.id === id);
   if (!p) return;
   p.roadmap.splice(idx, 1);
-  scheduleSave();
+  queueOp({ t: 'delRoadmap', pid: id, idx });
   openProject(id);
 };
 
@@ -1636,14 +1766,14 @@ window.cycleRoadmapStatus = (id, idx) => {
   if (!p || !p.roadmap[idx]) return;
   const cycle = { future: 'current', current: 'done', done: 'future' };
   p.roadmap[idx].estado = cycle[p.roadmap[idx].estado || 'future'];
-  scheduleSave();
+  queueOp({ t: 'rfield', pid: id, idx, field: 'estado', value: p.roadmap[idx].estado });
   openProject(id);
 };
 
 window.deleteProject = (id) => {
   if (!confirm('¿Eliminar este proyecto? Esta acción no se puede deshacer.')) return;
   proyectos = proyectos.filter(p => p.id !== id);
-  scheduleSave();
+  queueOp({ t: 'delProject', pid: id });
   closeModal();
   render();
 };
@@ -1669,7 +1799,7 @@ document.getElementById('addProjectBtn').addEventListener('click', () => {
     creado: new Date().toISOString()
   };
   proyectos.push(newProject);
-  scheduleSave();
+  queueOp({ t: 'addProject', project: newProject });
   render();
   openProject(newProject.id);
 });

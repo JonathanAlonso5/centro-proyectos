@@ -497,7 +497,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     ? crypto.randomUUID()
     : request.headers.get("Mcp-Session-Id") || crypto.randomUUID();
 
-  const results = await Promise.all(requests.map(r => handleRpc(r, env)));
+  // Serializar (no Promise.all): si un batch trae varias mutaciones, cada
+  // executeTool hace read-modify-write sobre el MISMO fichero de Drive; en
+  // paralelo se pisarían entre ellas (last-writer-wins). En secuencia cada una
+  // ve lo que escribió la anterior. Los batches son raros pero esto los blinda.
+  const results: (any | null)[] = [];
+  for (const r of requests) {
+    results.push(await handleRpc(r, env));
+  }
   const filtered = results.filter(r => r !== null);
 
   // No body for notifications-only requests
