@@ -243,6 +243,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       dest.searchParams.set("code", code);
       const state = params.get("state");
       if (state) dest.searchParams.set("state", state);
+      // RFC 9207: identificar el issuer en la respuesta de authorization evita
+      // que un AS malicioso cuele su code en otro. La spec MCP 2026-07-28 lo
+      // pide (SHOULD) y los clientes conformes lo validan.
+      dest.searchParams.set("iss", origin);
       return Response.redirect(dest.toString(), 302);
     }
   }

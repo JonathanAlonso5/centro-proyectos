@@ -1,16 +1,29 @@
-// MCP server for Centro de Proyectos
-// Streamable HTTP transport (MCP spec 2025-03-26 + 2024-11-05 compat)
+// MCP server for Centro de Proyectos — servidor DUAL-ERA
+// Streamable HTTP transport.
 //
-// POST /mcp with JSON-RPC body
-//   - initialize: returns serverInfo and issues Mcp-Session-Id response header
-//   - tools/list: returns the catalog
-//   - tools/call: executes the tool
-//   - notifications/*: returns 204
-// GET /mcp with Accept: text/event-stream
-//   - Returns a long-lived SSE stream (used by mcp-remote / Claude Desktop bridge
-//     to keep the connection alive and receive server-initiated messages)
-// GET /mcp without that Accept
-//   - Returns metadata as application/json (health check)
+// Habla las dos eras del protocolo sobre el MISMO endpoint (permitido
+// explícitamente por la spec 2026-07-28, §Backward Compatibility):
+//
+//   - "moderna" (2026-07-28+): sin handshake. Cada request lleva su versión y
+//     capabilities en `params._meta` (+ cabecera MCP-Protocol-Version). El
+//     servidor DEBE implementar `server/discover`. Los results llevan
+//     `resultType` y `_meta.io.modelcontextprotocol/serverInfo`; las listas
+//     llevan `ttlMs`/`cacheScope`. No hay sesiones ni Mcp-Session-Id.
+//   - "legacy" (2025-11-25 y anteriores): handshake `initialize` +
+//     Mcp-Session-Id + GET SSE. Es lo que hablan hoy Claude Code, los
+//     conectores de claude.ai y mcp-remote.
+//
+// La era se decide POR REQUEST: si trae versión >= 2026-07-28 (en _meta o en
+// cabecera) o el método es `server/discover`, se sirve moderna; si no, legacy.
+//
+// POST /mcp con cuerpo JSON-RPC
+//   - server/discover: versiones soportadas + capabilities + identidad (moderna)
+//   - initialize: handshake legacy, emite Mcp-Session-Id
+//   - tools/list / tools/call: en ambas eras
+//   - notifications/*: 202 sin cuerpo
+// GET /mcp con Accept: text/event-stream → stream SSE largo (solo legacy)
+// GET /mcp sin ese Accept → metadata JSON (health check)
+// DELETE /mcp → 204 (cierre de sesión legacy)
 
 interface Env {
   SA_KEY: string;
@@ -18,7 +31,30 @@ interface Env {
   MCP_SECRET: string;
 }
 
-const PROTOCOL_VERSION = "2024-11-05";
+// Revisión moderna (sin handshake) que implementamos.
+const MODERN_VERSION = "2026-07-28";
+// Revisiones legacy que aceptamos en `initialize`. Para un servidor que solo
+// expone tools, `initialize`/`tools/list`/`tools/call` son idénticos en todas.
+const LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
+const SUPPORTED_VERSIONS = [MODERN_VERSION, ...LEGACY_VERSIONS];
+// Versión legacy por defecto si el cliente no pide ninguna reconocible.
+const LEGACY_DEFAULT = "2024-11-05";
+const SERVER_INFO = { name: "centro-proyectos-mcp", version: "0.5.0" };
+const SERVER_INSTRUCTIONS =
+  "Centro de Proyectos: panel personal de proyectos de Jonathan. Llama cdp_list_projects al inicio de una sesion para tener contexto, y cdp_update_project / cdp_add_task / cdp_complete_task al cerrarla.";
+
+// Claves _meta del namespace oficial.
+const META_VERSION = "io.modelcontextprotocol/protocolVersion";
+const META_SERVER_INFO = "io.modelcontextprotocol/serverInfo";
+
+// Códigos de error reservados por la spec (rango -32020..-32099).
+const ERR_HEADER_MISMATCH = -32020;
+const ERR_UNSUPPORTED_VERSION = -32022;
+
+// Cache hint para las listas (CacheableResult). "private": la respuesta va
+// ligada al Bearer del usuario, ningun intermediario compartido debe cachearla.
+const LIST_CACHE = { ttlMs: 300000, cacheScope: "private" as const };
+
 const DATA_FILE_NAME = "centro-proyectos-data.json";
 
 // ---------- Tool catalog ----------
@@ -392,52 +428,176 @@ interface RpcRequest {
   params?: any;
 }
 
-async function handleRpc(req: RpcRequest, env: Env): Promise<any | null> {
-  const { method, params, id } = req;
+// Respuesta con cuerpo + el status HTTP que le corresponde. La era moderna
+// mapea ciertos errores JSON-RPC a status concretos (400 version/cabeceras,
+// 404 metodo desconocido); la legacy siempre va 200.
+interface RpcOutcome {
+  body: any | null;
+  status: number;
+}
 
-  if (method === "initialize") {
-    return {
+const NO_BODY: RpcOutcome = { body: null, status: 202 };
+
+// Versión declarada por el request: `params._meta` manda, la cabecera es
+// espejo. Las YYYY-MM-DD se comparan como strings sin problema.
+function requestedVersion(req: RpcRequest, headerVersion: string | null): string | null {
+  return req?.params?._meta?.[META_VERSION] ?? headerVersion ?? null;
+}
+
+function isModernRequest(req: RpcRequest, headerVersion: string | null): boolean {
+  if (req?.method === "server/discover") return true;
+  const v = requestedVersion(req, headerVersion);
+  return !!v && v >= MODERN_VERSION;
+}
+
+function rpcError(id: any, code: number, message: string, data?: any, status = 200): RpcOutcome {
+  return {
+    body: { jsonrpc: "2.0", id, error: data === undefined ? { code, message } : { code, message, data } },
+    status
+  };
+}
+
+// Envuelve un result: la era moderna exige `resultType` y recomienda
+// identificarse en `_meta`; la legacy lo deja tal cual.
+function rpcResult(id: any, result: any, modern: boolean, cache?: typeof LIST_CACHE): RpcOutcome {
+  if (!modern) return { body: { jsonrpc: "2.0", id, result }, status: 200 };
+  return {
+    body: {
       jsonrpc: "2.0",
       id,
       result: {
-        protocolVersion: PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "centro-proyectos-mcp", version: "0.3.0" }
+        resultType: "complete",
+        ...result,
+        ...(cache ?? {}),
+        _meta: { [META_SERVER_INFO]: SERVER_INFO }
       }
+    },
+    status: 200
+  };
+}
+
+async function handleRpc(
+  req: RpcRequest,
+  env: Env,
+  headerVersion: string | null
+): Promise<RpcOutcome> {
+  const { method, params, id } = req;
+  const modern = isModernRequest(req, headerVersion);
+  const version = requestedVersion(req, headerVersion);
+
+  // Version desconocida en un request moderno → el cliente debe reintentar con
+  // una de las nuestras. `initialize` NO pasa por aqui: ahi la negociacion es
+  // por eco de version, no por error.
+  if (modern && version && !SUPPORTED_VERSIONS.includes(version)) {
+    return rpcError(
+      id,
+      ERR_UNSUPPORTED_VERSION,
+      "Unsupported protocol version",
+      { supported: SUPPORTED_VERSIONS, requested: version },
+      400
+    );
+  }
+
+  // --- Era moderna: descubrimiento (obligatorio segun spec) ---
+  if (method === "server/discover") {
+    return rpcResult(
+      id,
+      {
+        supportedVersions: SUPPORTED_VERSIONS,
+        capabilities: { tools: {} },
+        instructions: SERVER_INSTRUCTIONS
+      },
+      true,
+      LIST_CACHE
+    );
+  }
+
+  // --- Era legacy: handshake ---
+  if (method === "initialize") {
+    const asked = params?.protocolVersion;
+    // Devolvemos la version pedida si la soportamos; si no, nuestra legacy por
+    // defecto (el cliente decide si sigue o corta).
+    const negotiated =
+      typeof asked === "string" && LEGACY_VERSIONS.includes(asked) ? asked : LEGACY_DEFAULT;
+    return {
+      body: {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: negotiated,
+          capabilities: { tools: { listChanged: false } },
+          serverInfo: SERVER_INFO,
+          instructions: SERVER_INSTRUCTIONS
+        }
+      },
+      status: 200
     };
   }
 
   if (method === "tools/list") {
-    return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
+    // Orden estable (array estatico): permite cachear en cliente y mejora el
+    // hit del prompt cache del LLM.
+    return rpcResult(id, { tools: TOOLS }, modern, modern ? LIST_CACHE : undefined);
   }
 
   if (method === "tools/call") {
     try {
       const result = await executeTool(params.name, params.arguments ?? {}, env);
-      return {
-        jsonrpc: "2.0",
+      return rpcResult(
         id,
-        result: {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
-        }
-      };
+        { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] },
+        modern
+      );
     } catch (e: any) {
-      return {
-        jsonrpc: "2.0",
-        id,
-        error: { code: -32603, message: e.message ?? String(e) }
-      };
+      return rpcError(id, -32603, e.message ?? String(e));
     }
   }
 
-  // Notifications: no response, but valid
-  if (method.startsWith("notifications/") || method === "ping") return null;
+  // Notificaciones: sin cuerpo. `ping` desaparece en la era moderna pero lo
+  // seguimos tolerando (clientes legacy lo usan como keepalive).
+  if (method.startsWith("notifications/") || method === "ping") return NO_BODY;
 
-  return {
-    jsonrpc: "2.0",
-    id,
-    error: { code: -32601, message: `Method not found: ${method}` }
-  };
+  // Metodo desconocido: en moderna va 404 con el error JSON-RPC dentro, que es
+  // justo lo que distingue "servidor moderno" de "endpoint inexistente".
+  return rpcError(id, -32601, `Method not found: ${method}`, undefined, modern ? 404 : 200);
+}
+
+// Decodifica el sentinel Base64 de la spec (`=?base64?...?=`) usado en
+// Mcp-Name / Mcp-Param-* cuando el valor no es ASCII seguro.
+function decodeHeaderValue(v: string): string {
+  const m = /^=\?base64\?(.*)\?=$/.exec(v);
+  if (!m) return v;
+  try {
+    return decodeURIComponent(escape(atob(m[1])));
+  } catch {
+    return v;
+  }
+}
+
+// Validación de cabeceras espejo (Mcp-Method / Mcp-Name / MCP-Protocol-Version).
+// Deliberadamente PERMISIVA: solo rechazamos si la cabecera viene y NO cuadra
+// con el cuerpo. La spec pide rechazar tambien si falta, pero eso rompe a
+// clientes modernos poco rigurosos y aqui no hay balanceador que enrute por
+// cabecera, que es el riesgo que la regla estricta cubre.
+function headerMismatch(req: RpcRequest, request: Request): string | null {
+  const hMethod = request.headers.get("Mcp-Method");
+  if (hMethod && hMethod !== req.method) {
+    return `Mcp-Method header value '${hMethod}' does not match body value '${req.method}'`;
+  }
+  const hName = request.headers.get("Mcp-Name");
+  if (hName) {
+    const bodyName = req.params?.name ?? req.params?.uri;
+    const decoded = decodeHeaderValue(hName);
+    if (bodyName && decoded !== bodyName) {
+      return `Mcp-Name header value '${decoded}' does not match body value '${bodyName}'`;
+    }
+  }
+  const hVersion = request.headers.get("MCP-Protocol-Version");
+  const metaVersion = req.params?._meta?.[META_VERSION];
+  if (hVersion && metaVersion && hVersion !== metaVersion) {
+    return `MCP-Protocol-Version header value '${hVersion}' does not match body value '${metaVersion}'`;
+  }
+  return null;
 }
 
 // ---------- HTTP entrypoints ----------
@@ -490,39 +650,62 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     });
   }
 
-  // Detect initialize to issue session ID
+  const headerVersion = request.headers.get("MCP-Protocol-Version");
   const requests = Array.isArray(body) ? body : [body];
+  const modernBatch = requests.some(r => isModernRequest(r, headerVersion));
+
+  // Cabeceras espejo: si vienen y no cuadran con el cuerpo → 400 + -32020.
+  for (const r of requests) {
+    const mismatch = headerMismatch(r, request);
+    if (mismatch) {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: r?.id ?? null,
+          error: { code: ERR_HEADER_MISMATCH, message: `Header mismatch: ${mismatch}` }
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    }
+  }
+
+  // Sesiones: solo era legacy. En la moderna no se emiten ni se hacen eco.
   const isInitialize = requests.some(r => r?.method === "initialize");
-  const sessionId = isInitialize
-    ? crypto.randomUUID()
-    : request.headers.get("Mcp-Session-Id") || crypto.randomUUID();
+  const sessionId = modernBatch
+    ? null
+    : isInitialize
+      ? crypto.randomUUID()
+      : request.headers.get("Mcp-Session-Id") || crypto.randomUUID();
+  const sessionHeader = sessionId ? { "Mcp-Session-Id": sessionId } : {};
 
   // Serializar (no Promise.all): si un batch trae varias mutaciones, cada
   // executeTool hace read-modify-write sobre el MISMO fichero de Drive; en
   // paralelo se pisarían entre ellas (last-writer-wins). En secuencia cada una
-  // ve lo que escribió la anterior. Los batches son raros pero esto los blinda.
-  const results: (any | null)[] = [];
+  // ve lo que escribió la anterior. Los batches son raros (y en la era moderna
+  // ya no existen: un POST = un mensaje) pero esto los blinda.
+  const outcomes: RpcOutcome[] = [];
   for (const r of requests) {
-    results.push(await handleRpc(r, env));
+    outcomes.push(await handleRpc(r, env, headerVersion));
   }
-  const filtered = results.filter(r => r !== null);
+  const filtered = outcomes.filter(o => o.body !== null);
 
-  // No body for notifications-only requests
+  // Solo notificaciones: 202 sin cuerpo
   if (filtered.length === 0) {
-    return new Response(null, {
-      status: 202,
-      headers: { ...CORS_HEADERS, "Mcp-Session-Id": sessionId }
-    });
+    return new Response(null, { status: 202, headers: { ...CORS_HEADERS, ...sessionHeader } });
   }
 
-  const responseBody = Array.isArray(body) ? filtered : filtered[0];
+  const responseBody = Array.isArray(body) ? filtered.map(o => o.body) : filtered[0].body;
+  // El status distinto de 200 solo tiene sentido con una respuesta única; un
+  // batch (siempre legacy) va 200 y el error viaja dentro de cada elemento.
+  const status = Array.isArray(body) ? 200 : filtered[0].status;
 
-  // If client accepts SSE, we COULD stream — but plain JSON works per spec
-  // when there's a single response. Return JSON to keep it simple.
+  // Podríamos abrir un SSE por request, pero JSON plano es válido por spec en
+  // ambas eras cuando no hay notificaciones intermedias que emitir.
   return new Response(JSON.stringify(responseBody), {
+    status,
     headers: {
       "Content-Type": "application/json",
-      "Mcp-Session-Id": sessionId,
+      ...sessionHeader,
       ...CORS_HEADERS
     }
   });
@@ -578,11 +761,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   // Plain GET — health/discovery
   return new Response(
     JSON.stringify({
-      name: "centro-proyectos-mcp",
-      version: "0.3.0",
-      transport: "Streamable HTTP",
-      protocolVersion: PROTOCOL_VERSION,
-      methods: ["initialize", "tools/list", "tools/call"],
+      name: SERVER_INFO.name,
+      version: SERVER_INFO.version,
+      transport: "Streamable HTTP (dual-era)",
+      supportedVersions: SUPPORTED_VERSIONS,
+      modernVersion: MODERN_VERSION,
+      methods: ["server/discover", "initialize", "tools/list", "tools/call"],
       tools: TOOLS.map(t => t.name),
       fileResolution: "by-name (most recent non-trashed file named " + DATA_FILE_NAME + "); DRIVE_FILE_ID used only as fallback",
       configured: {
