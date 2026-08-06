@@ -236,7 +236,8 @@ const TOOLS = [
         proyecto: { type: "string", description: "Id del proyecto padre, o vacio si es transversal" },
         extra: { type: "object" },
         etiquetas: { type: "array", items: { type: "string" } },
-        agente: { type: "string", enum: ["jonathan", "claude-code", "codex"] }
+        agente: { type: "string", enum: ["jonathan", "claude-code", "codex"] },
+        archivado: { type: "number", description: "1 lo saca de las listas sin borrarlo" }
       }
     }
   },
@@ -565,7 +566,7 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
     }
 
     case "cdp_upsert_node": {
-      const entrada = {
+      const entrada: any = {
         tipo: args.tipo,
         titulo: args.titulo,
         cuerpo: args.cuerpo ?? "",
@@ -575,6 +576,7 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
         etiquetas: args.etiquetas ?? [],
         agente: args.agente ?? null
       };
+      if (args.archivado !== undefined) entrada.archivado = args.archivado;
       const nodo = args.id
         ? (await actualizarNodo(db, args.id, entrada)) ?? (await crearNodo(db, { ...entrada, id: args.id }))
         : await crearNodo(db, entrada);

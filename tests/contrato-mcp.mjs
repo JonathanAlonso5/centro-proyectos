@@ -267,10 +267,18 @@ const main = async () => {
   });
   igualdad("cdp_log_session cuelga del proyecto", sesion.proyecto, "P-001");
 
-  // Limpieza de lo que han dejado las pruebas del cerebro.
+  // Limpieza: archivar, no renombrar. El tipo de un nodo no se puede cambiar,
+  // así que la nota de prueba seguiría saliendo en el cerebro y en el índice
+  // de la memoria si solo se le cambiara el título.
   for (const id of [captura.id, nota.id, sesion.id]) {
-    await tool("cdp_upsert_node", { id, tipo: "captura", titulo: "borrame", estado: "descartada" });
+    await tool("cdp_upsert_node", { id, tipo: "nota", titulo: "prueba de contrato (archivada)", archivado: 1 });
   }
+  const trasLimpiar = await tool("cdp_list_notes");
+  comprobar(
+    "lo archivado desaparece de las listas",
+    !trasLimpiar.some(n => n.id === nota.id),
+    JSON.stringify(trasLimpiar.filter(n => n.id === nota.id))
+  );
 
   // ---- Resultado ----
   console.log(`\n${pasadas} comprobaciones pasadas`);
