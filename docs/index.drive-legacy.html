@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Centro de Proyectos</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="CdP">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<style>
+  :root {
+    --ink: #1a1814;
+    --paper: #f5f1e8;
+    --paper-warm: #ebe4d2;
+    --accent: #c84b1d;
+    --accent-soft: #e8a987;
+    --muted: #8a8275;
+    --line: #d4ccb8;
+    --green: #5a7a3a;
+    --amber: #c89a2e;
+    --slate: #4a5568;
+    --red: #b03030;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(200,75,29,0.04) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(90,122,58,0.04) 0%, transparent 40%);
+  }
+
+  /* ---------- LOGIN ---------- */
+  .login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    max-width: 460px;
+    text-align: center;
+    padding: 48px 40px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(26,24,20,0.08);
+  }
+  .login-card h1 {
+    font-size: 36px;
+    font-weight: 500;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+  .login-card h1 em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 400;
+  }
+  .login-card p {
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+  .google-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .google-btn:hover { transform: translateY(-1px); }
+  .google-btn:disabled { opacity: 0.5; cursor: wait; }
+  .login-meta {
+    margin-top: 32px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    line-height: 1.8;
+  }
+
+  /* ---------- HEADER ---------- */
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 24px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    background: var(--paper);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .logo {
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+  .logo em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 400;
+  }
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .header-right { display: flex; gap: 16px; align-items: center; }
+  .sync-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .sync-indicator.connected { color: var(--green); }
+  .sync-indicator.saving { color: var(--amber); }
+  .sync-indicator.error { color: var(--red); }
+  .sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 2s infinite;
+  }
+  .logout-btn {
+    background: none;
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .logout-btn:hover { color: var(--ink); border-color: var(--ink); }
+
+  /* ---------- TOOLBAR ---------- */
+  .toolbar {
+    padding: 24px 40px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .filter-group {
+    display: flex;
+    gap: 4px;
+    background: var(--paper-warm);
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { color: var(--ink); }
+  .filter-btn.active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .search {
+    flex: 1;
+    max-width: 300px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    border-radius: 6px;
+    color: var(--ink);
+  }
+  .search:focus { outline: none; border-color: var(--accent); }
+  .add-btn {
+    margin-left: auto;
+    padding: 8px 18px;
+    background: var(--accent);
+    color: var(--paper);
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: transform 0.15s;
+  }
+  .add-btn:hover { transform: translateY(-1px); }
+
+  /* ---------- WEEK VIEW ---------- */
+  .week-view {
+    margin: 32px 40px;
+    padding: 24px;
+    background: linear-gradient(135deg, #2a2620 0%, #1a1814 100%);
+    color: var(--paper);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .week-view::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(232,169,135,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .week-view h2 {
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--accent-soft);
+    margin-bottom: 16px;
+  }
+  .week-tasks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .week-task {
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.05);
+    border-left: 2px solid var(--accent);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .week-task:hover { background: rgba(255,255,255,0.1); }
+  .week-task .proj {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .week-task .task {
+    font-size: 15px;
+    font-weight: 400;
+  }
+
+  /* ---------- GRID ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 0 40px 40px;
+  }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(26,24,20,0.12);
+    border-color: var(--ink);
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--status-color, var(--muted));
+  }
+  .card[data-status="activo"] { --status-color: var(--green); }
+  .card[data-status="pausado"] { --status-color: var(--amber); }
+  .card[data-status="planificacion"] { --status-color: var(--slate); }
+  .card[data-status="completado"] { --status-color: var(--muted); }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .card-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+  .status-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: var(--status-color);
+    color: var(--paper);
+  }
+  .card h3 {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+    font-variation-settings: "opsz" 144;
+  }
+  .card .description {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+    font-style: italic;
+  }
+  .progress-section { margin-bottom: 14px; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .progress-bar {
+    height: 4px;
+    background: var(--paper-warm);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--status-color, var(--accent));
+    border-radius: 2px;
+    transition: width 0.4s;
+  }
+  .next-step {
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+    font-size: 13px;
+  }
+  .next-step .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .next-step .text { color: var(--ink); line-height: 1.4; }
+  .tags { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    background: var(--paper-warm);
+    color: var(--muted);
+    border-radius: 3px;
+  }
+
+  /* ---------- MODAL ---------- */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(26,24,20,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--paper);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 32px;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    transition: background 0.2s;
+  }
+  .modal-close:hover { background: var(--paper-warm); }
+  .modal h2 {
+    font-size: 32px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+  .modal .subtitle {
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 24px;
+  }
+  .editable {
+    cursor: text;
+    padding: 4px 8px;
+    margin: -4px -8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .editable:hover { background: var(--paper-warm); }
+  .editable[contenteditable="true"]:focus {
+    outline: 2px solid var(--accent);
+    background: var(--paper);
+  }
+  .modal-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .control-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  select, .progress-input {
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .progress-input { width: 60px; }
+  .danger-btn {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--red);
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  .danger-btn:hover { background: var(--red); color: var(--paper); border-color: var(--red); }
+  .kanban {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .column {
+    background: var(--paper-warm);
+    border-radius: 8px;
+    padding: 14px;
+    min-height: 200px;
+  }
+  .column h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .task-card {
+    background: var(--paper);
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    border-left: 2px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .task-card.priority { border-left-color: var(--accent); }
+  .task-card .drag-handle {
+    color: var(--line);
+    cursor: grab;
+    touch-action: none;
+    flex-shrink: 0;
+    line-height: 1;
+    font-size: 14px;
+    letter-spacing: -2px;
+    padding: 0 4px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .task-card .drag-handle:hover { color: var(--accent); }
+  .task-card.dragging {
+    opacity: 0.85;
+    box-shadow: 0 14px 36px rgba(26,24,20,0.25);
+    transform: rotate(1.5deg) scale(1.02);
+    cursor: grabbing;
+    z-index: 1000;
+  }
+  .task-card .drag-handle:active { cursor: grabbing; }
+  .column.dropzone {
+    transition: background 0.15s, outline 0.15s;
+    outline: 2px dashed transparent;
+    outline-offset: -4px;
+  }
+  .column.drag-over {
+    background: rgba(200,75,29,0.08);
+    outline-color: var(--accent);
+  }
+  .task-card .task-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .task-card:hover .task-actions { opacity: 1; }
+  /* On touch devices, always show actions (no hover) */
+  @media (hover: none) {
+    .task-card .task-actions { opacity: 1; }
+  }
+  .task-card button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .task-card button:hover { background: var(--paper-warm); color: var(--ink); }
+  .add-task-form {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .add-task-form input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    background: transparent;
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .add-task-form input:focus { outline: none; border-color: var(--accent); }
+  .add-task-form button {
+    padding: 4px 10px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+  }
+  .modal-section { margin-top: 24px; }
+  .modal-section h3 {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .small-add {
+    background: none;
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .small-add:hover { color: var(--ink); border-color: var(--ink); }
+  .notes-area {
+    width: 100%;
+    min-height: 100px;
+    padding: 14px;
+    background: var(--paper-warm);
+    border: none;
+    border-radius: 8px;
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    color: var(--ink);
+    resize: vertical;
+    line-height: 1.6;
+  }
+  .notes-area:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .roadmap-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: center;
+  }
+  .roadmap-item:last-child { border-bottom: none; }
+  .roadmap-marker {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 2px solid var(--accent);
+  }
+  .roadmap-marker.done { background: var(--green); border-color: var(--green); }
+  .roadmap-marker.future { background: transparent; border-color: var(--muted); }
+  .roadmap-when, .roadmap-what {
+    border: none;
+    background: transparent;
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    color: var(--ink);
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  .roadmap-when {
+    width: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .roadmap-what { flex: 1; }
+  .roadmap-when:focus, .roadmap-what:focus {
+    outline: 1px solid var(--accent);
+    background: var(--paper);
+  }
+  .roadmap-delete {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .roadmap-item:hover .roadmap-delete { opacity: 1; }
+  .empty-hint {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  @media (max-width: 640px) {
+    /* === Mobile-first === */
+    header { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+    .logo { font-size: 22px; }
+    .meta { font-size: 10px; }
+    .header-right { width: 100%; justify-content: space-between; }
+
+    .toolbar { padding: 14px 16px; gap: 10px; }
+    .filter-group {
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      padding: 4px;
+    }
+    .filter-btn {
+      flex: 0 0 auto;
+      padding: 9px 14px;
+      font-size: 11px;
+      min-height: 36px;
+    }
+    .search {
+      flex: 1 1 100%;
+      max-width: none;
+      order: 2;
+      padding: 12px 14px;
+      font-size: 16px; /* prevent iOS zoom on focus */
+      min-height: 44px;
+    }
+    .add-btn {
+      flex: 1 1 100%;
+      margin-left: 0;
+      text-align: center;
+      padding: 14px 18px;
+      font-size: 12px;
+      order: 3;
+      min-height: 48px;
+    }
+
+    .week-view { margin: 16px; padding: 18px; }
+    .week-view h2 { font-size: 12px; margin-bottom: 12px; }
+    .week-task { padding: 14px 16px; }
+    .week-task .task { font-size: 14px; line-height: 1.35; }
+    .week-tasks { grid-template-columns: 1fr; gap: 8px; }
+
+    .grid { padding: 0 16px 80px; grid-template-columns: 1fr; gap: 14px; }
+    .card { padding: 18px 18px 16px; }
+    .card h3 { font-size: 19px; }
+    .card .description { font-size: 13px; margin-bottom: 12px; }
+    .progress-section { margin-bottom: 12px; }
+
+    /* Modal -> full screen takeover on mobile */
+    .modal-overlay.open { padding: 0; align-items: stretch; }
+    .modal {
+      max-width: 100%;
+      max-height: 100vh;
+      width: 100%;
+      height: 100vh;
+      border-radius: 0;
+      padding: 64px 18px 24px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .modal-close {
+      top: 14px;
+      right: 14px;
+      width: 40px;
+      height: 40px;
+      font-size: 26px;
+      background: var(--paper-warm);
+    }
+    .modal h2 { font-size: 26px; }
+    .modal .subtitle { font-size: 14px; }
+    .modal-controls { gap: 10px; }
+    .danger-btn { margin-left: 0; width: 100%; text-align: center; padding: 10px; min-height: 44px; }
+
+    .kanban {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .column { padding: 14px 12px; }
+    .column h4 { font-size: 12px; }
+
+    .task-card {
+      padding: 14px 12px;
+      font-size: 14px;
+      line-height: 1.4;
+      min-height: 44px;
+    }
+    .task-card .drag-handle { font-size: 18px; padding: 0 6px; }
+
+    .add-task-form input { min-height: 40px; padding: 10px 12px; font-size: 16px; }
+    .add-task-form button { min-width: 40px; min-height: 40px; }
+
+    .roadmap-when { width: 80px; font-size: 10px; }
+    .roadmap-what { font-size: 14px; }
+    .roadmap-delete { opacity: 1; padding: 8px 10px; }
+
+    .notes-area { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <h1>Centro de <em>Proyectos</em></h1>
+    <p>Tu base de operaciones personal. Conecta con Google Drive para empezar.</p>
+    <button class="google-btn" id="loginBtn" disabled>
+      <span id="loginBtnText">Cargando...</span>
+    </button>
+    <div class="login-meta">
+      Solo accede a archivos creados por la propia app<br>
+      Tus datos viven en tu Drive · No se envían a ningún otro sitio
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+  <header>
+    <div>
+      <div class="logo">Centro de <em>Proyectos</em></div>
+      <div class="meta" style="margin-top: 4px;" id="metaInfo">cargando...</div>
+    </div>
+    <div class="header-right">
+      <div class="sync-indicator connected" id="syncIndicator">
+        <span class="sync-dot"></span>
+        <span id="syncText">Drive conectado</span>
+      </div>
+      <button class="logout-btn" id="refreshBtn" title="Recargar datos desde Drive" aria-label="Recargar">↻</button>
+      <button class="logout-btn" id="logoutBtn">Salir</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="filter-group">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="activo">Activos</button>
+      <button class="filter-btn" data-filter="pausado">Pausados</button>
+      <button class="filter-btn" data-filter="planificacion">Planificación</button>
+      <button class="filter-btn" data-filter="completado">Completados</button>
+    </div>
+    <input type="text" class="search" placeholder="Buscar proyecto..." id="search">
+    <button class="add-btn" id="addProjectBtn">+ Nuevo Proyecto</button>
+  </div>
+
+  <div class="week-view">
+    <h2>⟶ Esta semana</h2>
+    <div class="week-tasks" id="weekTasks"></div>
+  </div>
+
+  <div class="grid" id="projectGrid"></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+const CLIENT_ID = '632850738128-1rdafo4d6sc5fmp2b71igof3fea9vv8m.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const FILE_NAME = 'centro-proyectos-data.json';
+
+let tokenClient;
+let accessToken = null;
+let fileId = null;
+let proyectos = [];
+let saveTimeout = null;
+// Cola de operaciones pendientes de guardar. Cada mutación local encola una
+// operación SEMÁNTICA (mover tarea, editar campo…) en vez de "guardar todo el
+// array". Al hacer flush, releemos el fichero fresco de Drive y aplicamos solo
+// estas operaciones encima → nunca pisamos lo que escribió el MCP (Claude) ni
+// al revés. Ver saveToDrive/flushBatch. Corrige el bug de last-writer-wins.
+let pendingOps = [];
+let flushing = false;
+
+// ============================================================
+// INICIALIZACIÓN GOOGLE
+// ============================================================
+function gapiLoaded() {
+  gapi.load('client', async () => {
+    await gapi.client.init({
+      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+    });
+    checkReady();
+  });
+}
+
+function gisLoaded() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (response) => {
+      if (response.error) {
+        showSyncError('Error de autenticación');
+        return;
+      }
+      accessToken = response.access_token;
+      localStorage.setItem('cp_token', accessToken);
+      localStorage.setItem('cp_token_time', Date.now().toString());
+      await onAuthSuccess();
+    }
+  });
+  checkReady();
+}
+
+let gapiReady = false, gisReady = false;
+function checkReady() {
+  if (typeof gapi !== 'undefined' && gapi.client) gapiReady = true;
+  if (typeof tokenClient !== 'undefined') gisReady = true;
+  if (gapiReady && gisReady) {
+    const btn = document.getElementById('loginBtn');
+    const btnText = document.getElementById('loginBtnText');
+    btn.disabled = false;
+    btnText.textContent = 'Conectar con Google Drive';
+
+    // Auto-login si hay token guardado y reciente (< 50 min)
+    const savedToken = localStorage.getItem('cp_token');
+    const savedTime = parseInt(localStorage.getItem('cp_token_time') || '0');
+    if (savedToken && (Date.now() - savedTime) < 50 * 60 * 1000) {
+      accessToken = savedToken;
+      gapi.client.setToken({ access_token: accessToken });
+      onAuthSuccess();
+    }
+  }
+}
+
+// Esperar a que las librerías carguen
+const waitForLibs = setInterval(() => {
+  if (typeof gapi !== 'undefined' && typeof google !== 'undefined' && google.accounts) {
+    clearInterval(waitForLibs);
+    gapiLoaded();
+    gisLoaded();
+  }
+}, 100);
+
+document.getElementById('loginBtn').addEventListener('click', () => {
+  tokenClient.requestAccessToken({ prompt: '' });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('cp_token');
+  localStorage.removeItem('cp_token_time');
+  if (accessToken) google.accounts.oauth2.revoke(accessToken, () => {});
+  location.reload();
+});
+
+// Función de refresh expuesta globalmente para que pwa-init.js (interval
+// y cdpForceUpdate) la pueda llamar.
+window.cdpRefresh = async function () {
+  if (!accessToken) return;
+  // Resetear fileId fuerza a loadOrCreateFile a re-resolver el más reciente.
+  fileId = null;
+  await loadOrCreateFile();
+  render();
+};
+
+// Botón Refresh: fuerza chequeo de SW nuevo + relectura del Drive.
+// Útil cuando otra sesión / MCP ha escrito y el JS local sigue con el
+// fileId anterior, O cuando hay una versión nueva del HTML/SW pendiente.
+document.getElementById('refreshBtn').addEventListener('click', async () => {
+  if (!accessToken) { location.reload(); return; }
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = '…';
+  showSyncStatus('Recargando…', 'saving');
+  try {
+    // cdpForceUpdate hace primero swRegistration.update() para detectar SW
+    // nuevo (que disparará banner si lo hay) y luego cdpRefresh para
+    // releer Drive.
+    if (typeof window.cdpForceUpdate === 'function') {
+      await window.cdpForceUpdate();
+    } else {
+      await window.cdpRefresh();
+    }
+    showSyncStatus('Drive conectado', 'connected');
+  } catch (err) {
+    console.error('Refresh failed:', err);
+    showSyncError('Error al recargar: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻';
+  }
+});
+
+// Auto-refresh al volver a la pestaña tras >30s ausentes. Detecta el
+// caso típico de móvil: usuario cambia de app, otra sesión escribe en
+// Drive, vuelve a la pestaña y debería ver datos frescos sin tocar nada.
+let lastVisibleAt = Date.now();
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    lastVisibleAt = Date.now();
+    return;
+  }
+  // Visible — si han pasado más de 30s sin ver la pestaña, recarga.
+  if (!accessToken || !fileId) return;
+  if (Date.now() - lastVisibleAt < 30_000) return;
+  try {
+    showSyncStatus('Actualizando…', 'saving');
+    fileId = null;
+    await loadOrCreateFile();
+    render();
+    showSyncStatus('Drive conectado', 'connected');
+  } catch (err) {
+    console.warn('Auto-refresh on visibility failed (silent):', err);
+    // No mostramos error visible — el usuario no pidió refresco activo.
+  }
+});
+
+// ============================================================
+// AUTH SUCCESS → CARGAR DATOS
+// ============================================================
+async function onAuthSuccess() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  gapi.client.setToken({ access_token: accessToken });
+
+  showSyncStatus('Cargando datos...', 'saving');
+  try {
+    await loadOrCreateFile();
+    render();
+    showSyncStatus('Drive conectado', 'connected');
+  } catch (err) {
+    console.error(err);
+    showSyncError('Error al cargar: ' + err.message);
+  }
+}
+
+async function loadOrCreateFile() {
+  // Buscar el archivo (puede haber duplicados si se ha escrito desde un Skill
+  // que solo tiene create_file disponible; nos quedamos con el mas reciente y
+  // mandamos a la papelera los antiguos para limpiar el Drive sin intervencion).
+  //
+  // FIX 2026-05-16: gapi.client.drive.files.list/get cacheaba respuestas en el
+  // navegador (especialmente en PWA móvil + SW). Tras escribir via MCP la web
+  // seguía viendo el listing y el contenido viejos. Sustituido por fetch directo
+  // con `cache: 'no-store'` + parámetro `_t` cache-bust para garantizar
+  // respuestas frescas siempre.
+  const listUrl = `https://www.googleapis.com/drive/v3/files?` + new URLSearchParams({
+    q: `name='${FILE_NAME}' and trashed=false`,
+    fields: 'files(id,name,modifiedTime)',
+    orderBy: 'modifiedTime desc',
+    spaces: 'drive',
+    pageSize: '50',
+    _t: String(Date.now())
+  });
+  const listResp = await fetch(listUrl, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+    cache: 'no-store'
+  });
+  if (!listResp.ok) throw new Error(`Drive list HTTP ${listResp.status} ${await listResp.text()}`);
+  const listJson = await listResp.json();
+  const files = listJson.files || [];
+
+  if (files.length > 0) {
+    fileId = files[0].id;
+    const modTime = new Date(files[0].modifiedTime);
+    document.getElementById('metaInfo').textContent =
+      `Última modificación: ${modTime.toLocaleString('es-ES')}`;
+
+    // Limpiar duplicados antiguos (los crea el Skill al "update" sin update API)
+    if (files.length > 1) {
+      console.log(`Encontrados ${files.length} duplicados de ${FILE_NAME}; mandando a papelera ${files.length - 1} antiguos`);
+      for (let i = 1; i < files.length; i++) {
+        try {
+          await fetch(`https://www.googleapis.com/drive/v3/files/${files[i].id}`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ trashed: true }),
+            cache: 'no-store'
+          });
+        } catch (e) {
+          console.warn('No se pudo trash duplicado', files[i].id, e);
+        }
+      }
+    }
+
+    // Descargar contenido — también fetch directo no-store para bypass cache
+    const getUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&_t=${Date.now()}`;
+    const getResp = await fetch(getUrl, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store'
+    });
+    if (!getResp.ok) throw new Error(`Drive get HTTP ${getResp.status}`);
+    const text = await getResp.text();
+    try {
+      const data = JSON.parse(text);
+      proyectos = data.proyectos || [];
+    } catch (e) {
+      console.error('JSON parse error:', e, text.slice(0, 200));
+      proyectos = [];
+    }
+  } else {
+    // Crear archivo nuevo con datos vacíos
+    proyectos = [];
+    await createFile();
+    document.getElementById('metaInfo').textContent = 'Archivo recién creado en tu Drive';
+  }
+}
+
+async function createFile() {
+  const metadata = {
+    name: FILE_NAME,
+    mimeType: 'application/json'
+  };
+  const data = JSON.stringify({
+    version: 1,
+    proyectos: proyectos,
+    updated: new Date().toISOString()
+  }, null, 2);
+
+  const boundary = '-------centroproyectos';
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelim = `\r\n--${boundary}--`;
+
+  const body =
+    delimiter +
+    'Content-Type: application/json\r\n\r\n' +
+    JSON.stringify(metadata) +
+    delimiter +
+    'Content-Type: application/json\r\n\r\n' +
+    data +
+    closeDelim;
+
+  const res = await gapi.client.request({
+    path: '/upload/drive/v3/files',
+    method: 'POST',
+    params: { uploadType: 'multipart' },
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body: body
+  });
+
+  fileId = res.result.id;
+}
+
+// Encola una operación semántica y programa el flush con debounce.
+function queueOp(op) {
+  pendingOps.push(op);
+  scheduleSave();
+}
+
+// Aplica una tanda de operaciones sobre un array de proyectos FRESCO (recién
+// leído de Drive). Idempotente en lo posible: las tareas se identifican por su
+// texto, no por índice, para no romperse si otra sesión reordenó la columna.
+function applyOps(arr, ops) {
+  const find = pid => arr.find(x => x.id === pid);
+  const ensure = p => {
+    if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
+    if (!Array.isArray(p.roadmap)) p.roadmap = [];
+  };
+  for (const op of ops) {
+    if (op.t === 'addProject') {
+      let proj = op.project;
+      if (arr.some(x => x.id === proj.id)) {
+        // Colisión de id (otra sesión creó uno en medio): recalcular.
+        proj = { ...proj, id: 'P-' + (arr.length + 1).toString().padStart(3, '0') };
+      }
+      arr.push(proj);
+      continue;
+    }
+    const p = find(op.pid);
+    if (!p) continue; // proyecto borrado en otra sesión → operación obsoleta
+    switch (op.t) {
+      case 'field':
+        p[op.field] = op.value;
+        break;
+      case 'addTask':
+        ensure(p);
+        p.tareas[op.col].push(op.text);
+        break;
+      case 'delTask': {
+        ensure(p);
+        const i = p.tareas[op.col].indexOf(op.text);
+        if (i >= 0) p.tareas[op.col].splice(i, 1);
+        break;
+      }
+      case 'moveTask': {
+        ensure(p);
+        const i = p.tareas[op.from].indexOf(op.text);
+        if (i >= 0) {
+          p.tareas[op.from].splice(i, 1);
+          p.tareas[op.to].push(op.text);
+        }
+        break;
+      }
+      case 'addRoadmap':
+        ensure(p);
+        p.roadmap.push(op.item);
+        break;
+      case 'delRoadmap':
+        ensure(p);
+        if (op.idx >= 0 && op.idx < p.roadmap.length) p.roadmap.splice(op.idx, 1);
+        break;
+      case 'rfield':
+        ensure(p);
+        if (p.roadmap[op.idx]) p.roadmap[op.idx][op.field] = op.value;
+        break;
+      case 'delProject': {
+        const idx = arr.findIndex(x => x.id === op.pid);
+        if (idx >= 0) arr.splice(idx, 1);
+        break;
+      }
+    }
+  }
+}
+
+// Escribe una tanda: relee el fichero fresco, aplica las ops encima y guarda.
+// Esto sustituye al "sobrescribir el array entero en memoria" que causaba que
+// la web pisara los cambios del MCP (tareas hechas que reaparecían).
+async function flushBatch(batch) {
+  const getUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&_t=${Date.now()}`;
+  const resp = await fetch(getUrl, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store'
+  });
+  if (!resp.ok) throw new Error(`Drive read HTTP ${resp.status}`);
+  let data;
+  try {
+    data = JSON.parse(await resp.text());
+  } catch (e) {
+    throw new Error('Fichero Drive ilegible al guardar: ' + e.message);
+  }
+  if (!Array.isArray(data.proyectos)) data.proyectos = [];
+
+  applyOps(data.proyectos, batch);
+  data.version = data.version || 1;
+  data.updated = new Date().toISOString();
+
+  const wResp = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data, null, 2)
+    }
+  );
+  if (!wResp.ok) throw new Error(`Drive write HTTP ${wResp.status}`);
+
+  // Adoptar la verdad fusionada localmente: así la UI refleja también lo que
+  // escribió Claude/MCP en paralelo, sin recargar toda la página.
+  proyectos = data.proyectos;
+  render();
+}
+
+// Dedupe-on-save: manda a papelera duplicados que la vieja Drive skill pudiera
+// crear con create_file. Se ejecuta una vez tras un flush con éxito.
+async function dedupeAfterSave() {
+  try {
+    const listUrl = `https://www.googleapis.com/drive/v3/files?` + new URLSearchParams({
+      q: `name='${FILE_NAME}' and trashed=false`,
+      fields: 'files(id,modifiedTime)',
+      orderBy: 'modifiedTime desc',
+      spaces: 'drive',
+      pageSize: '100',
+      _t: String(Date.now())
+    });
+    const r = await fetch(listUrl, {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (!r.ok) return;
+    const dupFiles = ((await r.json()).files || []).filter(f => f.id !== fileId);
+    for (const f of dupFiles) {
+      try {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trashed: true }),
+          cache: 'no-store'
+        });
+      } catch (e) {
+        console.warn('No se pudo trash duplicado', f.id, e);
+      }
+    }
+  } catch (e) {
+    console.warn('dedupe-on-save falló', e);
+  }
+}
+
+async function saveToDrive() {
+  if (!fileId || flushing || pendingOps.length === 0) return;
+  flushing = true;
+  showSyncStatus('Guardando...', 'saving');
+  try {
+    // Drenar todas las ops que se hayan ido acumulando, por tandas.
+    while (pendingOps.length) {
+      const batch = pendingOps.splice(0);
+      try {
+        await flushBatch(batch);
+      } catch (e) {
+        // Devolver la tanda al frente de la cola para reintentar más tarde.
+        pendingOps.unshift(...batch);
+        throw e;
+      }
+    }
+    await dedupeAfterSave();
+    document.getElementById('metaInfo').textContent =
+      `Última modificación: ${new Date().toLocaleString('es-ES')}`;
+    showSyncStatus('Drive conectado', 'connected');
+  } catch (err) {
+    console.error(err);
+    showSyncError('Error al guardar');
+  } finally {
+    flushing = false;
+    // Si llegaron ops nuevas (o falló el flush), reprogramar.
+    if (pendingOps.length) scheduleSave();
+  }
+}
+
+// Auto-save con debounce
+function scheduleSave() {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveToDrive, 800);
+}
+
+function showSyncStatus(text, state) {
+  const indicator = document.getElementById('syncIndicator');
+  indicator.className = 'sync-indicator ' + state;
+  document.getElementById('syncText').textContent = text;
+}
+
+function showSyncError(msg) {
+  showSyncStatus(msg, 'error');
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+const grid = document.getElementById('projectGrid');
+const weekTasks = document.getElementById('weekTasks');
+const modal = document.getElementById('modal');
+const modalContent = document.getElementById('modalContent');
+const search = document.getElementById('search');
+
+function render() {
+  const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
+  renderCards(activeFilter, search.value);
+  renderWeekTasks();
+}
+
+function renderCards(filter = 'all', searchTerm = '') {
+  const filtered = proyectos.filter(p => {
+    const matchFilter = filter === 'all' || p.estado === filter;
+    const matchSearch = !searchTerm ||
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.tags || []).some(t => t.includes(searchTerm.toLowerCase()));
+    return matchFilter && matchSearch;
+  });
+
+  if (proyectos.length === 0) {
+    grid.innerHTML = `<div class="empty-hint" style="grid-column: 1/-1;">
+      Aún no hay proyectos.<br>
+      Empieza creando uno con el botón <strong>+ Nuevo Proyecto</strong> arriba.
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.length ? filtered.map(p => `
+    <article class="card" data-status="${p.estado}" data-id="${p.id}">
+      <div class="card-header">
+        <span class="card-id">${p.id}</span>
+        <span class="status-badge">${p.estado}</span>
+      </div>
+      <h3>${escapeHtml(p.nombre)}</h3>
+      <p class="description">${escapeHtml(p.descripcion || '')}</p>
+      <div class="progress-section">
+        <div class="progress-label">
+          <span>Progreso</span>
+          <span>${p.progreso || 0}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: ${p.progreso || 0}%"></div>
+        </div>
+      </div>
+      <div class="next-step">
+        <span class="label">Próximo paso</span>
+        <span class="text">${escapeHtml(p.proximoPaso || '—')}</span>
+      </div>
+      <div class="tags">
+        ${(p.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}
+      </div>
+    </article>
+  `).join('') : '<div class="empty-hint" style="grid-column: 1/-1;">No hay proyectos que coincidan</div>';
+
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => openProject(card.dataset.id));
+  });
+}
+
+function renderWeekTasks() {
+  const tasks = proyectos
+    .filter(p => p.estado === 'activo' || p.estado === 'planificacion')
+    .filter(p => p.proximoPaso)
+    .map(p => ({ proj: p.nombre, task: p.proximoPaso, id: p.id }));
+
+  weekTasks.innerHTML = tasks.length ? tasks.map(t => `
+    <div class="week-task" data-id="${t.id}">
+      <div class="proj">${escapeHtml(t.proj)}</div>
+      <div class="task">${escapeHtml(t.task)}</div>
+    </div>
+  `).join('') : '<div style="color: var(--accent-soft); font-style: italic;">No hay tareas pendientes para esta semana</div>';
+
+  document.querySelectorAll('.week-task').forEach(t => {
+    t.addEventListener('click', () => openProject(t.dataset.id));
+  });
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ============================================================
+// MODAL DE PROYECTO
+// ============================================================
+function openProject(id) {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
+  if (!p.roadmap) p.roadmap = [];
+  if (!p.tags) p.tags = [];
+
+  modalContent.innerHTML = `
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+      <span class="card-id">${p.id}</span>
+    </div>
+    <h2 class="editable" contenteditable="true" data-field="nombre" data-id="${p.id}">${escapeHtml(p.nombre)}</h2>
+    <p class="subtitle editable" contenteditable="true" data-field="descripcion" data-id="${p.id}">${escapeHtml(p.descripcion || 'Añade una descripción...')}</p>
+
+    <div class="modal-controls">
+      <span class="control-label">Estado:</span>
+      <select data-field="estado" data-id="${p.id}">
+        <option value="activo" ${p.estado === 'activo' ? 'selected' : ''}>Activo</option>
+        <option value="pausado" ${p.estado === 'pausado' ? 'selected' : ''}>Pausado</option>
+        <option value="planificacion" ${p.estado === 'planificacion' ? 'selected' : ''}>Planificación</option>
+        <option value="completado" ${p.estado === 'completado' ? 'selected' : ''}>Completado</option>
+      </select>
+      <span class="control-label">Progreso:</span>
+      <input type="number" class="progress-input" min="0" max="100" value="${p.progreso || 0}" data-field="progreso" data-id="${p.id}">%
+      <span class="control-label">Etiquetas:</span>
+      <input type="text" class="progress-input" style="width: 200px;" value="${(p.tags || []).join(', ')}" data-field="tags" data-id="${p.id}" placeholder="separadas por coma">
+      <button class="danger-btn" onclick="deleteProject('${p.id}')">Eliminar proyecto</button>
+    </div>
+
+    <div class="modal-section">
+      <h3>Próximo paso</h3>
+      <div class="editable" contenteditable="true" data-field="proximoPaso" data-id="${p.id}"
+        style="padding: 12px 16px; background: var(--paper-warm); border-radius: 8px; font-size: 15px;">
+        ${escapeHtml(p.proximoPaso || 'Define el próximo paso...')}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Tareas</h3>
+      <div class="kanban">
+        <div class="column" data-col="porHacer" data-pid="${p.id}">
+          <h4>Por hacer · ${p.tareas.porHacer.length}</h4>
+          ${p.tareas.porHacer.map((t, i) => `
+            <div class="task-card" data-col="porHacer" data-idx="${i}" data-pid="${p.id}">
+              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
+              <span class="task-text">${escapeHtml(t)}</span>
+              <div class="task-actions">
+                <button onclick="moveTask('${p.id}', 'porHacer', 'enCurso', ${i})" title="A en curso">→</button>
+                <button onclick="deleteTask('${p.id}', 'porHacer', ${i})" title="Eliminar">×</button>
+              </div>
+            </div>
+          `).join('')}
+          <div class="add-task-form">
+            <input type="text" placeholder="Nueva tarea..." onkeydown="if(event.key==='Enter') addTask('${p.id}', 'porHacer', this)">
+            <button onclick="addTask('${p.id}', 'porHacer', this.previousElementSibling)">+</button>
+          </div>
+        </div>
+        <div class="column" data-col="enCurso" data-pid="${p.id}">
+          <h4>En curso · ${p.tareas.enCurso.length}</h4>
+          ${p.tareas.enCurso.map((t, i) => `
+            <div class="task-card priority" data-col="enCurso" data-idx="${i}" data-pid="${p.id}">
+              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
+              <span class="task-text">${escapeHtml(t)}</span>
+              <div class="task-actions">
+                <button onclick="moveTask('${p.id}', 'enCurso', 'porHacer', ${i})" title="Volver">←</button>
+                <button onclick="moveTask('${p.id}', 'enCurso', 'hecho', ${i})" title="A hecho">→</button>
+                <button onclick="deleteTask('${p.id}', 'enCurso', ${i})">×</button>
+              </div>
+            </div>
+          `).join('')}
+          <div class="add-task-form">
+            <input type="text" placeholder="Nueva tarea..." onkeydown="if(event.key==='Enter') addTask('${p.id}', 'enCurso', this)">
+            <button onclick="addTask('${p.id}', 'enCurso', this.previousElementSibling)">+</button>
+          </div>
+        </div>
+        <div class="column" data-col="hecho" data-pid="${p.id}">
+          <h4>Hecho · ${p.tareas.hecho.length}</h4>
+          ${p.tareas.hecho.map((t, i) => `
+            <div class="task-card" style="opacity:0.6;" data-col="hecho" data-idx="${i}" data-pid="${p.id}">
+              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
+              <span class="task-text">${escapeHtml(t)}</span>
+              <div class="task-actions">
+                <button onclick="moveTask('${p.id}', 'hecho', 'enCurso', ${i})" title="Volver">←</button>
+                <button onclick="deleteTask('${p.id}', 'hecho', ${i})">×</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>
+        Hoja de ruta
+        <button class="small-add" onclick="addRoadmapItem('${p.id}')">+ Añadir hito</button>
+      </h3>
+      <div id="roadmap-list">
+        ${p.roadmap.map((r, i) => `
+          <div class="roadmap-item">
+            <div class="roadmap-marker ${r.estado || 'current'}"
+              onclick="cycleRoadmapStatus('${p.id}', ${i})"
+              title="Click para cambiar estado"></div>
+            <input type="text" class="roadmap-when" value="${escapeHtml(r.fecha || '')}"
+              placeholder="cuándo"
+              data-rid="${p.id}" data-ridx="${i}" data-rfield="fecha">
+            <input type="text" class="roadmap-what" value="${escapeHtml(r.texto || '')}"
+              placeholder="qué"
+              data-rid="${p.id}" data-ridx="${i}" data-rfield="texto">
+            <button class="roadmap-delete" onclick="deleteRoadmapItem('${p.id}', ${i})">×</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Notas</h3>
+      <textarea class="notes-area" data-field="notas" data-id="${p.id}"
+        placeholder="Anotaciones, decisiones, ideas...">${escapeHtml(p.notas || '')}</textarea>
+    </div>
+  `;
+
+  // Event listeners para edición
+  modalContent.querySelectorAll('[contenteditable="true"]').forEach(el => {
+    el.addEventListener('blur', handleEdit);
+  });
+  modalContent.querySelectorAll('select, input, textarea').forEach(el => {
+    if (el.dataset.field) el.addEventListener('change', handleEdit);
+    if (el.dataset.field === 'notas' || el.dataset.field === 'tags' || el.dataset.field === 'progreso') {
+      el.addEventListener('input', debounceEdit);
+    }
+    if (el.dataset.rfield) {
+      el.addEventListener('change', handleRoadmapEdit);
+      el.addEventListener('input', debounceEdit);
+    }
+  });
+
+  setupDragDrop();
+  modal.classList.add('open');
+}
+
+// Drag and drop tasks between kanban columns using Pointer Events
+// (works on touch and mouse). Long-press / handle-only drag avoids
+// stealing scroll. The handle is the ⋮⋮ glyph on the left of each task.
+function setupDragDrop() {
+  let drag = null;
+  const handles = modalContent.querySelectorAll('.task-card .drag-handle');
+  handles.forEach(handle => {
+    handle.addEventListener('pointerdown', onDown);
+  });
+  function onDown(e) {
+    e.preventDefault();
+    const card = e.target.closest('.task-card');
+    if (!card) return;
+    const fromCol = card.dataset.col;
+    const idx = parseInt(card.dataset.idx);
+    const pid = card.dataset.pid;
+    const rect = card.getBoundingClientRect();
+    drag = {
+      card, pid, fromCol, idx,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      ghostHeight: rect.height,
+      pointerId: e.pointerId
+    };
+    // Add a ghost spacer where the card was, so layout doesn't collapse
+    const ghost = document.createElement('div');
+    ghost.style.height = rect.height + 'px';
+    ghost.style.opacity = '0';
+    ghost.dataset.ghost = '1';
+    card.parentNode.insertBefore(ghost, card);
+    drag.ghost = ghost;
+    // Fix card size so it keeps its width when fixed-positioned
+    card.style.width = rect.width + 'px';
+    card.style.position = 'fixed';
+    card.style.left = (e.clientX - drag.offsetX) + 'px';
+    card.style.top = (e.clientY - drag.offsetY) + 'px';
+    card.classList.add('dragging');
+    document.querySelectorAll('.kanban .column').forEach(c => c.classList.add('dropzone'));
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+    if (navigator.vibrate) navigator.vibrate(20);
+  }
+  function onMove(e) {
+    if (!drag) return;
+    drag.card.style.left = (e.clientX - drag.offsetX) + 'px';
+    drag.card.style.top = (e.clientY - drag.offsetY) + 'px';
+    // Find column under pointer
+    document.querySelectorAll('.kanban .column').forEach(c => c.classList.remove('drag-over'));
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const col = under && under.closest('.kanban .column');
+    if (col) col.classList.add('drag-over');
+  }
+  function onUp(e) {
+    if (!drag) return;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    let target = null;
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    if (under) target = under.closest('.kanban .column');
+    document.querySelectorAll('.kanban .column').forEach(c => c.classList.remove('drag-over', 'dropzone'));
+    drag.card.classList.remove('dragging');
+    drag.card.style.position = '';
+    drag.card.style.left = '';
+    drag.card.style.top = '';
+    drag.card.style.width = '';
+    if (drag.ghost) drag.ghost.remove();
+    if (target && target.dataset.col && target.dataset.col !== drag.fromCol) {
+      const toCol = target.dataset.col;
+      // Reuse existing moveTask which handles save + re-render
+      moveTask(drag.pid, drag.fromCol, toCol, drag.idx);
+    }
+    drag = null;
+  }
+}
+
+let editTimeout;
+function debounceEdit(e) {
+  clearTimeout(editTimeout);
+  editTimeout = setTimeout(() => handleEdit(e), 500);
+}
+
+function handleEdit(e) {
+  const el = e.target;
+  const id = el.dataset.id;
+  const field = el.dataset.field;
+  if (!id || !field) {
+    if (el.dataset.rfield) return handleRoadmapEdit(e);
+    return;
+  }
+
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+
+  let value = el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+    ? el.value
+    : el.textContent.trim();
+
+  if (field === 'progreso') value = parseInt(value) || 0;
+  if (field === 'tags') value = value.split(',').map(t => t.trim()).filter(Boolean);
+  if (field === 'descripcion' && value === 'Añade una descripción...') value = '';
+  if (field === 'proximoPaso' && value === 'Define el próximo paso...') value = '';
+
+  p[field] = value;
+  queueOp({ t: 'field', pid: id, field, value });
+  render();
+}
+
+function handleRoadmapEdit(e) {
+  const el = e.target;
+  const id = el.dataset.rid;
+  const idx = parseInt(el.dataset.ridx);
+  const field = el.dataset.rfield;
+  const p = proyectos.find(x => x.id === id);
+  if (!p || !p.roadmap[idx]) return;
+  p.roadmap[idx][field] = el.value;
+  queueOp({ t: 'rfield', pid: id, idx, field, value: el.value });
+}
+
+window.closeModal = () => modal.classList.remove('open');
+modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+window.addTask = (id, col, input) => {
+  const text = input.value.trim();
+  if (!text) return;
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
+  p.tareas[col].push(text);
+  queueOp({ t: 'addTask', pid: id, col, text });
+  openProject(id);
+};
+
+window.deleteTask = (id, col, idx) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  const text = p.tareas[col][idx];
+  p.tareas[col].splice(idx, 1);
+  queueOp({ t: 'delTask', pid: id, col, text });
+  openProject(id);
+};
+
+window.moveTask = (id, from, to, idx) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  const task = p.tareas[from].splice(idx, 1)[0];
+  p.tareas[to].push(task);
+  queueOp({ t: 'moveTask', pid: id, from, to, text: task });
+  openProject(id);
+};
+
+window.addRoadmapItem = (id) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  if (!p.roadmap) p.roadmap = [];
+  const item = { fecha: '', texto: '', estado: 'future' };
+  p.roadmap.push(item);
+  queueOp({ t: 'addRoadmap', pid: id, item });
+  openProject(id);
+};
+
+window.deleteRoadmapItem = (id, idx) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p) return;
+  p.roadmap.splice(idx, 1);
+  queueOp({ t: 'delRoadmap', pid: id, idx });
+  openProject(id);
+};
+
+window.cycleRoadmapStatus = (id, idx) => {
+  const p = proyectos.find(x => x.id === id);
+  if (!p || !p.roadmap[idx]) return;
+  const cycle = { future: 'current', current: 'done', done: 'future' };
+  p.roadmap[idx].estado = cycle[p.roadmap[idx].estado || 'future'];
+  queueOp({ t: 'rfield', pid: id, idx, field: 'estado', value: p.roadmap[idx].estado });
+  openProject(id);
+};
+
+window.deleteProject = (id) => {
+  if (!confirm('¿Eliminar este proyecto? Esta acción no se puede deshacer.')) return;
+  proyectos = proyectos.filter(p => p.id !== id);
+  queueOp({ t: 'delProject', pid: id });
+  closeModal();
+  render();
+};
+
+// ============================================================
+// CREAR PROYECTO
+// ============================================================
+document.getElementById('addProjectBtn').addEventListener('click', () => {
+  const nombre = prompt('Nombre del proyecto:');
+  if (!nombre) return;
+  const nextNum = (proyectos.length + 1).toString().padStart(3, '0');
+  const newProject = {
+    id: 'P-' + nextNum,
+    nombre: nombre.trim(),
+    descripcion: '',
+    estado: 'planificacion',
+    progreso: 0,
+    proximoPaso: '',
+    tags: [],
+    tareas: { porHacer: [], enCurso: [], hecho: [] },
+    roadmap: [],
+    notas: '',
+    creado: new Date().toISOString()
+  };
+  proyectos.push(newProject);
+  queueOp({ t: 'addProject', project: newProject });
+  render();
+  openProject(newProject.id);
+});
+
+// ============================================================
+// FILTROS Y BÚSQUEDA
+// ============================================================
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  });
+});
+
+search.addEventListener('input', render);
+</script>
+
+  <script src="/pwa-init.js" defer></script>
+</body>
+</html>

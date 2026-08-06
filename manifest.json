@@ -1,13 +1,13 @@
 {
   "name": "Centro de Proyectos",
   "short_name": "CdP",
-  "description": "Tracker personal de proyectos",
+  "description": "Panel de proyectos y segundo cerebro de Jonathan",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#fafaf7",
-  "theme_color": "#1a1a1a",
+  "background_color": "#101318",
+  "theme_color": "#101318",
   "lang": "es",
   "icons": [
     {
@@ -26,16 +26,25 @@
   "categories": [
     "productivity"
   ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "titulo",
+      "text": "texto",
+      "url": "url"
+    }
+  },
   "shortcuts": [
     {
-      "name": "Foco",
-      "short_name": "Foco",
-      "url": "/?filter=active-focus"
+      "name": "Capturar",
+      "short_name": "Capturar",
+      "url": "/?foco=captura"
     },
     {
-      "name": "Activos",
-      "short_name": "Activos",
-      "url": "/?filter=activo"
+      "name": "Tareas",
+      "short_name": "Tareas",
+      "url": "/?vista=tareas"
     }
   ]
 }
