@@ -25,9 +25,29 @@
 // GET /mcp sin ese Accept → metadata JSON (health check)
 // DELETE /mcp → 204 (cierre de sesión legacy)
 
+import {
+  actualizarNodo,
+  borrarNodo,
+  buscar,
+  crearNodo,
+  enlacesDe,
+  enlazar,
+  listarProyectos,
+  nodosPorTipo,
+  obtenerNodo,
+  obtenerProyectoLegacy,
+  proyectoALegacy,
+  sincronizarEnlacesDelCuerpo,
+  tareasDeColumna,
+  type Columna
+} from "./lib/db";
+
 interface Env {
-  SA_KEY: string;
-  DRIVE_FILE_ID: string;
+  // El almacén. Todo lo demás es histórico.
+  CDP: D1Database;
+  // Solo los usa cdp_backup_drive (copia de seguridad nocturna en Drive).
+  SA_KEY?: string;
+  DRIVE_FILE_ID?: string;
   MCP_SECRET: string;
 }
 
@@ -39,9 +59,12 @@ const LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
 const SUPPORTED_VERSIONS = [MODERN_VERSION, ...LEGACY_VERSIONS];
 // Versión legacy por defecto si el cliente no pide ninguna reconocible.
 const LEGACY_DEFAULT = "2024-11-05";
-const SERVER_INFO = { name: "centro-proyectos-mcp", version: "0.5.0" };
+const SERVER_INFO = { name: "centro-proyectos-mcp", version: "0.6.0" };
 const SERVER_INSTRUCTIONS =
-  "Centro de Proyectos: panel personal de proyectos de Jonathan. Llama cdp_list_projects al inicio de una sesion para tener contexto, y cdp_update_project / cdp_add_task / cdp_complete_task al cerrarla.";
+  "Centro de Proyectos: panel personal de proyectos de Jonathan y su segundo cerebro. " +
+  "Llama cdp_list_projects al inicio de una sesion para tener contexto, y cdp_update_project / cdp_add_task / cdp_complete_task al cerrarla. " +
+  "Antes de dar por bueno un diagnostico, busca en el cerebro con cdp_search: los 'gotcha' son fallos ya vistos y ya resueltos. " +
+  "Al cerrar sesion, deja el rastro con cdp_log_session en vez de alargar proximoPaso.";
 
 // Claves _meta del namespace oficial.
 const META_VERSION = "io.modelcontextprotocol/protocolVersion";
@@ -169,6 +192,114 @@ const TOOLS = [
         id: { type: "string" }
       }
     }
+  },
+
+  // ---- Segundo cerebro (v0.6.0) ----
+
+  {
+    name: "cdp_search",
+    description:
+      "Busca por texto en TODO el cerebro (proyectos, tareas, notas, sesiones, capturas). Usalo ANTES de diagnosticar un fallo o de proponer una solucion: las notas de tipo gotcha son problemas ya resueltos, con su causa y su arreglo.",
+    inputSchema: {
+      type: "object",
+      required: ["q"],
+      properties: {
+        q: { type: "string", description: "Texto libre, en espanol" },
+        tipo: { type: "string", enum: ["proyecto", "tarea", "nota", "sesion", "captura"] },
+        limite: { type: "number", description: "Default 20, maximo 100" }
+      }
+    }
+  },
+  {
+    name: "cdp_get_node",
+    description:
+      "Devuelve un nodo cualquiera por id, con sus etiquetas y sus enlaces (los que salen y los que entran).",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "string" } }
+    }
+  },
+  {
+    name: "cdp_upsert_node",
+    description:
+      "Crea o actualiza un nodo. Sin id crea uno nuevo. Los [[enlaces]] que haya en el cuerpo se convierten en enlaces reales. Para notas, extra.subtipo debe ser user|feedback|project|reference|gotcha.",
+    inputSchema: {
+      type: "object",
+      required: ["tipo", "titulo"],
+      properties: {
+        id: { type: "string" },
+        tipo: { type: "string", enum: ["proyecto", "tarea", "nota", "sesion", "captura"] },
+        titulo: { type: "string" },
+        cuerpo: { type: "string" },
+        estado: { type: "string" },
+        proyecto: { type: "string", description: "Id del proyecto padre, o vacio si es transversal" },
+        extra: { type: "object" },
+        etiquetas: { type: "array", items: { type: "string" } },
+        agente: { type: "string", enum: ["jonathan", "claude-code", "codex"] }
+      }
+    }
+  },
+  {
+    name: "cdp_link",
+    description: "Enlaza dos nodos. tipo: menciona (default), bloquea o deriva_de.",
+    inputSchema: {
+      type: "object",
+      required: ["origen", "destino"],
+      properties: {
+        origen: { type: "string" },
+        destino: { type: "string" },
+        tipo: { type: "string", enum: ["menciona", "bloquea", "deriva_de"] }
+      }
+    }
+  },
+  {
+    name: "cdp_capture",
+    description:
+      "Suelta algo en la bandeja de entrada sin decidir donde va. Se clasifica despues, desde la web.",
+    inputSchema: {
+      type: "object",
+      required: ["texto"],
+      properties: {
+        texto: { type: "string" },
+        via: { type: "string", enum: ["pwa", "telegram", "correo", "agente"] },
+        proyecto: { type: "string", description: "Proyecto sugerido, opcional" }
+      }
+    }
+  },
+  {
+    name: "cdp_log_session",
+    description:
+      "Deja el rastro de una sesion de trabajo: que se hizo y por que, con fecha. Esto es lo que sustituye a seguir alargando proximoPaso.",
+    inputSchema: {
+      type: "object",
+      required: ["proyecto", "texto"],
+      properties: {
+        proyecto: { type: "string" },
+        texto: { type: "string" },
+        fecha: { type: "string", description: "YYYY-MM-DD. Default: hoy" },
+        agente: { type: "string", enum: ["jonathan", "claude-code", "codex"] }
+      }
+    }
+  },
+  {
+    name: "cdp_list_notes",
+    description:
+      "Lista las notas del cerebro, opcionalmente filtradas por subtipo o proyecto. Para buscar por contenido usa cdp_search.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        subtipo: { type: "string", enum: ["user", "feedback", "project", "reference", "gotcha"] },
+        proyecto: { type: "string" },
+        limite: { type: "number" }
+      }
+    }
+  },
+  {
+    name: "cdp_backup_drive",
+    description:
+      "Vuelca todo el CdP al fichero JSON de Drive como copia de seguridad. Drive ya no es la fuente de verdad: esto es solo respaldo.",
+    inputSchema: { type: "object", properties: {} }
   }
 ];
 
@@ -301,117 +432,219 @@ async function writeDriveFile(token: string, fileId: string, data: any): Promise
 
 // ---------- Tool execution ----------
 
+// Las siete herramientas de siempre mantienen su firma y su forma de respuesta:
+// de ellas dependen el bot de Telegram del VPS y los subagentes cdp-updater y
+// docs-updater. Lo único que cambia por debajo es que ya no hay un JSON de
+// Drive, sino filas en D1. Hay pruebas de contrato en tests/contrato-mcp.mjs.
 async function executeTool(name: string, args: any, env: Env): Promise<any> {
-  const saKey: SAKey = JSON.parse(env.SA_KEY);
-  const token = await getAccessToken(saKey);
-  // Resolve the canonical fileId at request time: pick the most recent file
-  // with the canonical name, falling back to DRIVE_FILE_ID. This keeps the
-  // MCP in sync with the web (which also reads "most recent by name") even
-  // if the legacy skill creates duplicate files via create_file.
-  const fileId = await findCanonicalFileId(token, env.DRIVE_FILE_ID);
-  const file = await readDriveFile(token, fileId);
-  if (!Array.isArray(file.proyectos)) throw new Error("Invalid data file: proyectos missing");
+  const db = env.CDP;
 
-  const findProject = (id: string) => {
-    const idx = file.proyectos.findIndex((p: any) => p.id === id);
-    if (idx < 0) throw new Error(`Project ${id} not found`);
-    return idx;
+  const exigirProyecto = async (id: string) => {
+    const p = await obtenerNodo(db, id);
+    if (!p || p.tipo !== "proyecto") throw new Error(`Project ${id} not found`);
+    return p;
   };
 
   switch (name) {
     case "cdp_list_projects":
-      return file.proyectos.map((p: any) => ({
-        id: p.id,
-        nombre: p.nombre,
-        estado: p.estado,
-        progreso: p.progreso,
-        proximoPaso: p.proximoPaso,
-        tags: p.tags
-      }));
+      return await listarProyectos(db);
 
-    case "cdp_get_project":
-      return file.proyectos[findProject(args.id)];
+    case "cdp_get_project": {
+      const p = await obtenerProyectoLegacy(db, args.id);
+      if (!p) throw new Error(`Project ${args.id} not found`);
+      return p;
+    }
 
     case "cdp_update_project": {
-      const idx = findProject(args.id);
-      const allowed = ["nombre", "descripcion", "estado", "progreso", "proximoPaso", "notas", "tags"];
-      for (const k of allowed) {
-        if (args[k] !== undefined) file.proyectos[idx][k] = args[k];
+      await exigirProyecto(args.id);
+      const cambios: any = { extra: {} };
+      if (args.nombre !== undefined) cambios.titulo = args.nombre;
+      if (args.descripcion !== undefined) cambios.cuerpo = args.descripcion;
+      if (args.estado !== undefined) cambios.estado = args.estado;
+      if (args.tags !== undefined) cambios.etiquetas = args.tags;
+      for (const k of ["progreso", "proximoPaso", "notas"]) {
+        if (args[k] !== undefined) cambios.extra[k] = args[k];
       }
-      file.updated = new Date().toISOString();
-      await writeDriveFile(token, fileId, file);
-      return file.proyectos[idx];
+      await actualizarNodo(db, args.id, cambios);
+      return await obtenerProyectoLegacy(db, args.id);
     }
 
     case "cdp_create_project": {
-      const next = (file.proyectos.length + 1).toString().padStart(3, "0");
-      const newP = {
-        id: "P-" + next,
-        nombre: args.nombre,
-        descripcion: args.descripcion ?? "",
+      // El id sale del máximo existente, no del número de proyectos: con
+      // count+1 (lo que hacía la versión de Drive), borrar uno y crear otro
+      // reutilizaba un id ya usado.
+      const fila = await db
+        .prepare(
+          "SELECT MAX(CAST(SUBSTR(id, 3) AS INTEGER)) AS m FROM nodes WHERE tipo = 'proyecto' AND id LIKE 'P-%'"
+        )
+        .first<{ m: number | null }>();
+      const id = "P-" + String((fila?.m ?? 0) + 1).padStart(3, "0");
+      await crearNodo(db, {
+        id,
+        tipo: "proyecto",
+        titulo: args.nombre,
+        cuerpo: args.descripcion ?? "",
         estado: args.estado ?? "planificacion",
-        progreso: args.progreso ?? 0,
-        proximoPaso: args.proximoPaso ?? "",
-        tags: args.tags ?? [],
-        tareas: { porHacer: [], enCurso: [], hecho: [] },
-        roadmap: [],
-        notas: args.notas ?? "",
-        creado: new Date().toISOString()
-      };
-      file.proyectos.push(newP);
-      file.updated = new Date().toISOString();
-      await writeDriveFile(token, fileId, file);
-      return newP;
+        etiquetas: args.tags ?? [],
+        extra: {
+          progreso: args.progreso ?? 0,
+          proximoPaso: args.proximoPaso ?? "",
+          notas: args.notas ?? "",
+          roadmap: []
+        }
+      });
+      return await obtenerProyectoLegacy(db, id);
     }
 
     case "cdp_add_task": {
-      const idx = findProject(args.id);
-      const p = file.proyectos[idx];
-      if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
-      const col = (args.column ?? "porHacer") as "porHacer" | "enCurso" | "hecho";
+      await exigirProyecto(args.id);
+      const col = (args.column ?? "porHacer") as Columna;
       if (!["porHacer", "enCurso", "hecho"].includes(col)) throw new Error("Invalid column");
-      p.tareas[col].push(args.text);
-      file.updated = new Date().toISOString();
-      await writeDriveFile(token, fileId, file);
+      await crearNodo(db, {
+        tipo: "tarea",
+        titulo: args.text,
+        estado: col,
+        proyecto: args.id,
+        agente: args.agente ?? null
+      });
       return { added: args.text, column: col, project: args.id };
     }
 
     case "cdp_complete_task": {
-      const idx = findProject(args.id);
-      const p = file.proyectos[idx];
-      if (!p.tareas) throw new Error("Project has no tasks");
-      const from = (args.from ?? "enCurso") as "porHacer" | "enCurso";
+      await exigirProyecto(args.id);
+      const from = (args.from ?? "enCurso") as Columna;
       const i = args.index;
-      if (typeof i !== "number" || !p.tareas[from] || !p.tareas[from][i]) {
-        throw new Error(`Task index ${i} not found in ${from}`);
-      }
-      const task = p.tareas[from].splice(i, 1)[0];
-      p.tareas.hecho.push(task);
-      file.updated = new Date().toISOString();
-      await writeDriveFile(token, fileId, file);
-      return { completed: task, project: args.id };
+      if (typeof i !== "number") throw new Error(`Task index ${i} not found in ${from}`);
+      // El índice es base-0 dentro de la columna origen, como siempre. Aquí se
+      // resuelve contra las tareas ordenadas por `orden`, que es el mismo orden
+      // que ve la web.
+      const lista = await tareasDeColumna(db, args.id, from);
+      const tarea = lista[i];
+      if (!tarea) throw new Error(`Task index ${i} not found in ${from}`);
+      await actualizarNodo(db, tarea.id, { estado: "hecho", orden: null });
+      return { completed: tarea.titulo, project: args.id };
     }
 
     case "cdp_add_roadmap": {
-      const idx = findProject(args.id);
-      const p = file.proyectos[idx];
-      if (!Array.isArray(p.roadmap)) p.roadmap = [];
-      p.roadmap.push({
-        fecha: args.fecha,
-        texto: args.texto,
-        estado: args.estado ?? "future"
-      });
-      file.updated = new Date().toISOString();
-      await writeDriveFile(token, fileId, file);
+      const p = await exigirProyecto(args.id);
+      const roadmap = Array.isArray(p.extra.roadmap) ? p.extra.roadmap : [];
+      roadmap.push({ fecha: args.fecha, texto: args.texto, estado: args.estado ?? "future" });
+      await actualizarNodo(db, args.id, { extra: { roadmap } });
       return { added: args.texto, project: args.id };
     }
 
     case "cdp_delete_project": {
-      const idx = findProject(args.id);
-      const removed = file.proyectos.splice(idx, 1)[0];
-      file.updated = new Date().toISOString();
-      await writeDriveFile(token, fileId, file);
-      return { deleted: args.id, nombre: removed?.nombre ?? null };
+      const p = await exigirProyecto(args.id);
+      // Las tareas, sesiones y notas del proyecto caen con él por ON DELETE CASCADE.
+      await borrarNodo(db, args.id);
+      return { deleted: args.id, nombre: p.titulo };
+    }
+
+    // ---- Segundo cerebro ----
+
+    case "cdp_search": {
+      const nodos = await buscar(db, String(args.q ?? ""), {
+        tipo: args.tipo,
+        limite: args.limite
+      });
+      return nodos.map(n => ({
+        id: n.id,
+        tipo: n.tipo,
+        subtipo: n.extra?.subtipo ?? null,
+        titulo: n.titulo,
+        proyecto: n.proyecto,
+        etiquetas: n.etiquetas,
+        extracto: n.cuerpo.length > 400 ? n.cuerpo.slice(0, 400) + "..." : n.cuerpo
+      }));
+    }
+
+    case "cdp_get_node": {
+      const n = await obtenerNodo(db, args.id);
+      if (!n) throw new Error(`Node ${args.id} not found`);
+      return { ...n, enlaces: await enlacesDe(db, args.id) };
+    }
+
+    case "cdp_upsert_node": {
+      const entrada = {
+        tipo: args.tipo,
+        titulo: args.titulo,
+        cuerpo: args.cuerpo ?? "",
+        estado: args.estado ?? null,
+        proyecto: args.proyecto || null,
+        extra: args.extra ?? {},
+        etiquetas: args.etiquetas ?? [],
+        agente: args.agente ?? null
+      };
+      const nodo = args.id
+        ? (await actualizarNodo(db, args.id, entrada)) ?? (await crearNodo(db, { ...entrada, id: args.id }))
+        : await crearNodo(db, entrada);
+      const enlaces = await sincronizarEnlacesDelCuerpo(db, nodo.id, entrada.cuerpo);
+      return { ...nodo, enlacesCreados: enlaces };
+    }
+
+    case "cdp_link": {
+      await enlazar(db, args.origen, args.destino, args.tipo ?? "menciona");
+      return { origen: args.origen, destino: args.destino, tipo: args.tipo ?? "menciona" };
+    }
+
+    case "cdp_capture": {
+      const nodo = await crearNodo(db, {
+        tipo: "captura",
+        titulo: args.texto,
+        estado: "sinClasificar",
+        proyecto: args.proyecto || null,
+        extra: { via: args.via ?? "agente" }
+      });
+      return { id: nodo.id, capturado: nodo.titulo, via: nodo.extra.via };
+    }
+
+    case "cdp_log_session": {
+      await exigirProyecto(args.proyecto);
+      const fecha = args.fecha ?? new Date().toISOString().slice(0, 10);
+      const nodo = await crearNodo(db, {
+        tipo: "sesion",
+        titulo: `${fecha} · ${args.proyecto}`,
+        cuerpo: args.texto,
+        proyecto: args.proyecto,
+        agente: args.agente ?? "claude-code",
+        extra: { fecha }
+      });
+      await sincronizarEnlacesDelCuerpo(db, nodo.id, args.texto);
+      return { id: nodo.id, proyecto: args.proyecto, fecha };
+    }
+
+    case "cdp_list_notes": {
+      const notas = await nodosPorTipo(db, "nota", { proyecto: args.proyecto });
+      const filtradas = args.subtipo
+        ? notas.filter(n => n.extra?.subtipo === args.subtipo)
+        : notas;
+      return filtradas.slice(0, Math.min(args.limite ?? 100, 200)).map(n => ({
+        id: n.id,
+        subtipo: n.extra?.subtipo ?? null,
+        titulo: n.titulo,
+        descripcion: n.extra?.descripcion ?? "",
+        proyecto: n.proyecto,
+        etiquetas: n.etiquetas
+      }));
+    }
+
+    case "cdp_backup_drive": {
+      if (!env.SA_KEY || !env.DRIVE_FILE_ID) throw new Error("Drive no configurado (falta SA_KEY o DRIVE_FILE_ID)");
+      const saKey: SAKey = JSON.parse(env.SA_KEY);
+      const token = await getAccessToken(saKey);
+      const fileId = await findCanonicalFileId(token, env.DRIVE_FILE_ID);
+      const proyectos = await nodosPorTipo(db, "proyecto", { incluirArchivados: true });
+      const salida = [];
+      for (const p of proyectos) {
+        const tareas = await nodosPorTipo(db, "tarea", { proyecto: p.id, incluirArchivados: true });
+        salida.push(proyectoALegacy(p, tareas));
+      }
+      await writeDriveFile(token, fileId, {
+        proyectos: salida,
+        updated: new Date().toISOString(),
+        origen: "copia de seguridad desde D1; la fuente de verdad es D1"
+      });
+      return { respaldados: salida.length, fileId };
     }
 
     default:
@@ -629,11 +862,13 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  if (!env.MCP_SECRET || !env.SA_KEY || !env.DRIVE_FILE_ID) {
+  // SA_KEY y DRIVE_FILE_ID ya no son obligatorios: solo los usa la copia de
+  // seguridad. Lo que no puede faltar es el binding de D1.
+  if (!env.MCP_SECRET || !env.CDP) {
     return new Response(
       JSON.stringify({
         error: "missing-env",
-        missing: { MCP_SECRET: !env.MCP_SECRET, SA_KEY: !env.SA_KEY, DRIVE_FILE_ID: !env.DRIVE_FILE_ID }
+        missing: { MCP_SECRET: !env.MCP_SECRET, CDP: !env.CDP }
       }),
       { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
     );
@@ -768,9 +1003,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       modernVersion: MODERN_VERSION,
       methods: ["server/discover", "initialize", "tools/list", "tools/call"],
       tools: TOOLS.map(t => t.name),
-      fileResolution: "by-name (most recent non-trashed file named " + DATA_FILE_NAME + "); DRIVE_FILE_ID used only as fallback",
+      storage: "Cloudflare D1 (binding CDP). Drive queda como copia de seguridad via cdp_backup_drive.",
       configured: {
         MCP_SECRET: !!env.MCP_SECRET,
+        CDP: !!env.CDP,
         SA_KEY: !!env.SA_KEY,
         DRIVE_FILE_ID: !!env.DRIVE_FILE_ID
       }

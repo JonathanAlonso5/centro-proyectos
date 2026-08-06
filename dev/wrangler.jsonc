@@ -1,0 +1,19 @@
+// Configuración SOLO para desarrollo local (wrangler d1 / pages dev).
+//
+// A propósito NO está en la raíz del repo: si hubiera un wrangler.toml o
+// wrangler.jsonc en la raíz, el CI de Cloudflare Pages lo usaría y dejaría de
+// leer la configuración del panel, donde viven MCP_SECRET, SA_KEY y
+// DRIVE_FILE_ID. Eso tumbaría el MCP en producción.
+//
+// Uso: npx wrangler d1 execute cdp --local -c dev/wrangler.jsonc --command "..."
+{
+  "name": "cdp-dev",
+  "compatibility_date": "2026-08-06",
+  "d1_databases": [
+    {
+      "binding": "CDP",
+      "database_name": "cdp",
+      "database_id": "7c8cca0e-e507-458c-b650-bf8617f654bf"
+    }
+  ]
+}
