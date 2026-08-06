@@ -85,6 +85,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
         const nodo = await crearNodo(db, {
           tipo: "captura",
           titulo: texto,
+          // El correo trae texto de sobra: el asunto va al título y el resto
+          // al cuerpo, para no perderlo ni convertir el título en un ladrillo.
+          cuerpo: String(cuerpo.cuerpo ?? ""),
           estado: "sinClasificar",
           extra: { via: cuerpo.via ?? "pwa" }
         });
