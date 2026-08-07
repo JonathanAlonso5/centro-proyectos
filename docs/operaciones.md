@@ -11,20 +11,27 @@
 | Drive | `centro-proyectos-data.json` | **Solo copia de seguridad**, vía `cdp_backup_drive` |
 | Memoria local | `~/.claude/projects/-home-jonathan-proyectos-tcgprecios/memory/*.md` | Caché de los nodos de tipo nota |
 
-## Paso manual pendiente: el binding de D1
+## El binding de D1
 
-**Hay que hacerlo una vez, y hasta entonces la web y el MCP no funcionan en
-producción** (dan `missing-env` con `CDP: false`).
+Ya está puesto en **Production** (hecho a mano el 2026-08-06). En **Preview no
+está**, y por eso las URLs de rama (`https://<rama>.centro-proyectos.pages.dev`)
+sirven la web pero no dejan entrar: ese entorno no tiene ni `CDP` ni
+`MCP_SECRET`. Para probar antes de mezclar, el servidor local; para probar de
+verdad, producción.
 
-Panel de Cloudflare → Workers & Pages → **centro-proyectos** → Settings →
-Bindings → Add → **D1 database**:
+Si algún día hay que rehacerlo: panel de Cloudflare → Workers & Pages →
+**centro-proyectos** → Settings → Bindings → Add → **D1 database**, variable
+`CDP`, base `cdp`. Después, Deployments → Retry deployment, que Cloudflare no
+siempre propaga un binding nuevo sin redesplegar.
 
-- Variable name: `CDP`
-- D1 database: `cdp`
+Para comprobar qué hay puesto sin tocar nada (un GET, nunca un PATCH):
 
-Añadirlo en **Production** y en **Preview**. Después, Deployments → Retry
-deployment del último de producción, que Cloudflare no siempre propaga un
-binding nuevo sin redesplegar.
+```bash
+TOK=$(grep '^oauth_token' ~/.config/.wrangler/config/default.toml | sed 's/.*= *"//;s/"//')
+curl -s -H "Authorization: Bearer $TOK" \
+  https://api.cloudflare.com/client/v4/accounts/d93841cfac86656bc82ac5ed20e6b195/pages/projects/centro-proyectos \
+  | python3 -c 'import sys,json; print(json.dumps(json.load(sys.stdin)["result"]["deployment_configs"],indent=1))'
+```
 
 **Por qué esto no lo hace un script:** la alternativa es meter un
 `wrangler.toml` en la raíz, y entonces el CI de Pages deja de leer la
@@ -54,10 +61,15 @@ npx wrangler pages dev . \
 git checkout main && git merge segundo-cerebro && git push
 ```
 
-Tras desplegar, comprobar que el MCP sigue vivo:
+Tras desplegar, comprobar que el MCP sigue vivo y pasar los dos contratos
+contra producción (el del MCP crea un proyecto de prueba y lo borra):
 
 ```bash
 curl -s https://centro-proyectos.pages.dev/mcp | grep -E '"version"|"CDP"'
+
+S=$(cat ~/.config/tcgprecios/cdp-mcp-secret)
+node tests/contrato-mcp.mjs    https://centro-proyectos.pages.dev/mcp "$S"
+node tests/contrato-acceso.mjs https://centro-proyectos.pages.dev     "$S"
 ```
 
 ## Migraciones
@@ -101,8 +113,6 @@ Para que Claude lo lance solo al abrir sesión, en `~/.claude/settings.json`:
 
 La herramienta `cdp_backup_drive` del MCP vuelca todo el CdP al JSON de Drive
 en el formato de siempre. Conviene llamarla desde el cron nocturno del VPS.
-
-## Si algo va mal
 
 ## Quién entra y cómo
 
