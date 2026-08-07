@@ -109,6 +109,33 @@ Para que Claude lo lance solo al abrir sesión, en `~/.claude/settings.json`:
 }
 ```
 
+## Conectar un agente al CdP
+
+El secreto **no se escribe en ninguna configuración**: vive en
+`~/.config/tcgprecios/cdp-mcp-secret` y se exporta desde ahí. En `~/.bashrc` y
+`~/.profile` (los dos, porque el de VS Code no siempre es un shell interactivo):
+
+```bash
+[ -r "$HOME/.config/tcgprecios/cdp-mcp-secret" ] && export CDP_SECRET="$(cat "$HOME/.config/tcgprecios/cdp-mcp-secret")"
+```
+
+**Claude Code** (hecho el 2026-08-07, ámbito usuario, vale para todos los repos):
+
+```bash
+claude mcp add --scope user --transport http cdp \
+  https://centro-proyectos.pages.dev/mcp \
+  --header 'Authorization: Bearer ${CDP_SECRET}'
+```
+
+Comillas simples a propósito: lo que se guarda en `~/.claude.json` es el nombre
+de la variable, no su valor. Comprobar con `claude mcp list`; si sale **Needs
+authentication**, es que `CDP_SECRET` no está en el entorno de esa terminal, no
+que el servidor falle.
+
+**Codex**: pendiente, no está instalado en esta máquina. Cuando lo esté, va en
+`~/.codex/config.toml`; conviene mirar la sintaxis de MCP remoto de la versión
+instalada antes de copiar nada, porque ha cambiado entre versiones.
+
 ## Captura desde el móvil
 
 Tres puertas a la misma bandeja:
