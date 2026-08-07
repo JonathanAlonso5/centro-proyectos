@@ -2,3 +2,5 @@
 dev/.wrangler/
 node_modules/
 scripts/migracion.sql
+__pycache__/
+*.pyc
