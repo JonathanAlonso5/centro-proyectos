@@ -48,7 +48,10 @@
     padding-bottom:env(safe-area-inset-bottom);
   }
   .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric:tabular-nums; }
-  button, input, textarea, select { font:inherit; color:inherit; }
+  /* El fondo va aquí a propósito, no solo en cada campo: heredar la tinta clara
+     sin heredar el fondo deja el texto casi invisible sobre el blanco que el
+     navegador pone por defecto, y solo se nota en Noche e Interior. */
+  button, input, textarea, select { font:inherit; color:inherit; background:var(--sunk); }
   button { background:none; border:none; cursor:pointer; }
   :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
@@ -201,12 +204,16 @@
   .campo { display:grid; grid-template-columns:96px 1fr; gap:8px; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:13px; align-items:center; }
   .campo dt { color:var(--muted); font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; }
   .campo dd { margin:0; min-width:0; }
-  .campo input, .campo select, .campo textarea {
+  .campo input, .campo select, .campo textarea,
+  .panel-sec input, .panel-sec select, .panel-sec textarea {
     width:100%; background:var(--sunk); border:1px solid var(--line); color:var(--text);
     padding:6px 9px; border-radius:5px; font-size:13px;
   }
-  .campo input:focus, .campo select:focus, .campo textarea:focus { border-color:var(--accent); outline:none; }
-  .campo textarea { resize:vertical; min-height:70px; line-height:1.45; }
+  .campo input:focus, .campo select:focus, .campo textarea:focus,
+  .panel-sec input:focus, .panel-sec select:focus, .panel-sec textarea:focus {
+    border-color:var(--accent); outline:none;
+  }
+  .campo textarea, .panel-sec textarea { resize:vertical; min-height:70px; line-height:1.45; }
   .contador { font-size:11px; color:var(--muted); text-align:right; margin-top:3px; }
   .contador.pasado { color:var(--crit); }
   .panel-sec { margin-top:22px; }
