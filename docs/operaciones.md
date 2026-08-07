@@ -132,9 +132,21 @@ de la variable, no su valor. Comprobar con `claude mcp list`; si sale **Needs
 authentication**, es que `CDP_SECRET` no está en el entorno de esa terminal, no
 que el servidor falle.
 
-**Codex**: pendiente, no está instalado en esta máquina. Cuando lo esté, va en
-`~/.codex/config.toml`; conviene mirar la sintaxis de MCP remoto de la versión
-instalada antes de copiar nada, porque ha cambiado entre versiones.
+**Codex** (CLI instalado el 2026-08-07 en `~/.npm-global` para no necesitar
+sudo, con el `bin` añadido al PATH en `.bashrc` y `.profile`):
+
+```bash
+codex mcp add cdp --url https://centro-proyectos.pages.dev/mcp \
+  --bearer-token-env-var CDP_SECRET
+```
+
+Igual que en Claude Code, en `~/.codex/config.toml` solo queda el **nombre** de
+la variable, nunca el secreto. Comprobar con `codex mcp list`.
+
+**Esto no gasta ni un token de la API de Anthropic ni de la de OpenAI.** El MCP
+es un endpoint HTTP propio en Cloudflare: Claude Code va con la suscripción
+(sesión OAuth, sin `ANTHROPIC_API_KEY`) y Codex con la cuenta de ChatGPT
+(`codex login`). Lo único que consume el CdP es plan gratuito de Cloudflare.
 
 ## Captura desde el móvil
 
