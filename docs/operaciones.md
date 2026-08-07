@@ -109,6 +109,33 @@ Para que Claude lo lance solo al abrir sesión, en `~/.claude/settings.json`:
 }
 ```
 
+## Captura desde el móvil
+
+Tres puertas a la misma bandeja:
+
+| Vía | Dónde | Estado |
+|---|---|---|
+| PWA | La barra de captura y el "Compartir" del sistema | Funcionando |
+| Telegram | `/capturar <lo que sea>` y `/cerebro <consulta>` | Funcionando |
+| Correo | `/home/scraper/cdp/` en el VPS, cron cada 10 min | **Dormido: falta el buzón** |
+
+El bot vive en el VPS (`/home/scraper/telegram-tareas-bot/bot.py`) y ya tenía
+`MCP_URL` y `MCP_SECRET`. Además de los dos comandos, Claude puede llamar a
+`cdp_capturar` y `cdp_buscar` por su cuenta: el prompt le dice que busque en el
+cerebro antes de responder a "por qué falla X" y que capture ante la duda en vez
+de preguntar dónde apuntar algo.
+
+Para encender el correo, rellenar las tres primeras líneas de
+`/home/scraper/cdp/.env` (`CDP_IMAP_HOST`, `CDP_IMAP_USER`, `CDP_IMAP_PASS`). El
+cron ya está puesto y `captura.sh` sale en silencio mientras pongan
+`__PENDIENTE`, así que empieza a capturar solo, sin tocar nada más.
+
+**Ojo con el watchdog del bot:** el `keepalive.sh` había desaparecido del
+crontab, y el bot solo seguía vivo como proceso suelto (al primer reinicio del
+VPS se habría quedado mudo sin avisar). Restaurado el 2026-08-07, cada minuto y
+al arrancar. Si el bot deja de responder, mirar primero
+`crontab -l | grep keepalive`.
+
 ## Copia de seguridad
 
 La herramienta `cdp_backup_drive` del MCP vuelca todo el CdP al JSON de Drive
