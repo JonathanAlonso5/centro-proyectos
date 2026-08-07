@@ -19,9 +19,13 @@ import {
   type Nodo
 } from "../lib/db";
 
+import { CLIENTE_GOOGLE, correosPermitidos, emitirSesion, quienEs, verificarGoogle } from "../lib/auth";
+
 interface Env {
   CDP: D1Database;
   MCP_SECRET: string;
+  // Correos con acceso, separados por comas. Sin definir, el de Jonathan.
+  CDP_CORREOS?: string;
 }
 
 const CABECERAS = {
@@ -45,19 +49,36 @@ export const onRequestOptions: PagesFunction<Env> = async () =>
 
 export const onRequest: PagesFunction<Env> = async ({ request, env, params }) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CABECERAS });
-  if (!env.CDP) return json({ error: "sin base de datos: falta el binding CDP" }, 500);
 
-  const auth = request.headers.get("Authorization");
-  if (!env.MCP_SECRET || auth !== `Bearer ${env.MCP_SECRET}`) {
-    return json({ error: "clave incorrecta" }, 401);
-  }
-
-  const db = env.CDP;
   const trozos = ([] as string[]).concat(params.ruta ?? []);
   const ruta = trozos[0] ?? "";
   const url = new URL(request.url);
   const cuerpo =
     request.method === "POST" ? await request.json().catch(() => ({} as any)) : ({} as any);
+
+  // Entrar con Google es lo único que va sin credencial: es lo que la crea.
+  if (ruta === "sesion") {
+    if (!env.MCP_SECRET) return json({ error: "el servidor no tiene MCP_SECRET configurado" }, 500);
+    try {
+      const persona = await verificarGoogle(String(cuerpo.credencial ?? ""), correosPermitidos(env));
+      const sesion = await emitirSesion(persona, env.MCP_SECRET);
+      return json({ ...sesion, correo: persona.correo, nombre: persona.nombre });
+    } catch (e: any) {
+      return json({ error: e?.message ?? "no se ha podido verificar la cuenta" }, 401);
+    }
+  }
+
+  // El navegador necesita saber con qué cliente pedirle el token a Google.
+  if (ruta === "config") {
+    return json({ clienteGoogle: CLIENTE_GOOGLE });
+  }
+
+  if (!env.CDP) return json({ error: "sin base de datos: falta el binding CDP" }, 500);
+
+  const quien = env.MCP_SECRET ? await quienEs(request, env.MCP_SECRET) : null;
+  if (!quien) return json({ error: "sin acceso" }, 401);
+
+  const db = env.CDP;
 
   try {
     switch (ruta) {

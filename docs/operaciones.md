@@ -104,9 +104,36 @@ en el formato de siempre. Conviene llamarla desde el cron nocturno del VPS.
 
 ## Si algo va mal
 
+## Quién entra y cómo
+
+Dos puertas, a propósito:
+
+- **Personas**: botón de Google. El servidor comprueba el token contra las claves
+  públicas de Google (firma, emisor, caducidad, que la aplicación sea la nuestra
+  y que el correo esté verificado) y que la cuenta esté en la lista. Después
+  emite una **sesión propia de 30 días firmada con `MCP_SECRET`**, y es esa la
+  que viaja en cada petición: el token de Google no se queda en el navegador y
+  rotar `MCP_SECRET` echa a todas las sesiones de golpe.
+- **Máquinas** (`cdp-sync`, el bot de Telegram, los scripts, el MCP): `Bearer
+  MCP_SECRET`, como siempre. También sirve de puerta de emergencia si Google
+  falla; en la web está detrás de "Entrar con la clave larga".
+
+La lista de correos con acceso se controla con la variable de entorno
+`CDP_CORREOS` (separados por comas). Sin definir, solo entra
+`jonathanalonso5@gmail.com`.
+
+El cliente OAuth es el que ya tenía el CdP
+(`632850738128-…apps.googleusercontent.com`). Sus **orígenes de JavaScript
+autorizados** tienen que incluir `https://centro-proyectos.pages.dev`; si algún
+día se cambia de dominio, hay que añadirlo ahí o el botón no pinta.
+
+## Si algo va mal
+
 | Síntoma | Mira primero |
 |---|---|
-| La web dice "clave incorrecta" | La clave es `MCP_SECRET`. Si se rotó, hay que volver a escribirla |
+| "la cuenta X no tiene acceso" | Has entrado con otra cuenta de Google. O cambias de cuenta, o añades esa a `CDP_CORREOS` |
+| El botón de Google no aparece | Orígenes autorizados del cliente OAuth. Mientras tanto, "Entrar con la clave larga" |
+| La web pide entrar cada dos por tres | La sesión caduca a los 30 días, pero rotar `MCP_SECRET` la invalida antes |
 | `missing-env` con `CDP: false` | Falta el binding de D1, arriba |
 | El MCP responde pero sin proyectos | La D1 de producción está vacía: relanzar `migrar-drive-a-d1.mjs --aplicar` |
 | El bot de Telegram deja de escribir | Pasar `./tests/probar.sh`: si el contrato está roto, es el MCP |

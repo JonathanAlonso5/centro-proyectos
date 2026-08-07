@@ -72,6 +72,10 @@
     color:var(--text); padding:10px; border-radius:var(--radius); font-weight:550;
   }
   .entrada .error { color:var(--crit); font-size:13px; min-height:19px; margin-top:8px; }
+  .respaldo { margin-top:20px; border-top:1px solid var(--line-soft); padding-top:14px; }
+  .respaldo summary { color:var(--muted); font-size:12.5px; cursor:pointer; }
+  .respaldo p { font-size:12px; margin:10px 0 8px; }
+  #boton-google { min-height:44px; display:flex; justify-content:center; }
 
   /* ============ BARRA ============ */
   .barra {
@@ -257,10 +261,15 @@
 <div class="entrada" id="entrada" hidden>
   <div class="entrada-caja">
     <h1>Centro de Proyectos</h1>
-    <p>Escribe la clave del CdP. Se guarda en este dispositivo y no vuelve a pedirse.</p>
-    <input type="password" id="clave" placeholder="Clave" autocomplete="current-password">
-    <button id="entrar">Entrar</button>
+    <p>Entra con tu cuenta de Google. La sesión dura un mes en este dispositivo.</p>
+    <div id="boton-google"></div>
     <div class="error" id="entrada-error"></div>
+    <details class="respaldo">
+      <summary>Entrar con la clave larga</summary>
+      <p>Solo si Google no va. Es la misma clave que usan el bot y los scripts.</p>
+      <input type="password" id="clave" placeholder="Clave" autocomplete="current-password">
+      <button id="entrar">Entrar con la clave</button>
+    </details>
   </div>
 </div>
 
@@ -960,11 +969,14 @@
   });
 
   // ---------- entrada ----------
+  var googlePreparado = false;
   function mostrarEntrada(error) {
     $("#entrada").hidden = false;
     $("#app").hidden = true;
     $("#entrada-error").textContent = error || "";
-    $("#clave").focus();
+    // Si la sesión caduca estando dentro, hay que volver a pintar el botón:
+    // sin esto la pantalla de entrada saldría solo con la clave larga.
+    if (!googlePreparado) { googlePreparado = true; prepararGoogle(); }
   }
 
   async function entrar(valor) {
@@ -982,6 +994,57 @@
   $("#clave").addEventListener("keydown", function (e) {
     if (e.key === "Enter") entrar($("#clave").value.trim());
   });
+
+  // Entrar con Google. Lo que se guarda NO es el token de Google: es una sesión
+  // propia de un mes, firmada por el servidor. Así rotar la clave del CdP echa
+  // a todo el mundo de golpe y el token de Google no vive en el navegador.
+  async function entrarConGoogle(credencial) {
+    $("#entrada-error").textContent = "";
+    try {
+      var res = await fetch("/api/sesion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credencial: credencial })
+      });
+      var datos = await res.json();
+      if (!res.ok) throw new Error(datos.error || "no se ha podido entrar");
+      entrar(datos.token);
+    } catch (e) {
+      mostrarEntrada(e.message);
+    }
+  }
+
+  function prepararGoogle() {
+    var pintar = function () {
+      if (!window.google || !google.accounts || !google.accounts.id) return;
+      fetch("/api/config")
+        .then(function (r) { return r.json(); })
+        .then(function (cfg) {
+          google.accounts.id.initialize({
+            client_id: cfg.clienteGoogle,
+            callback: function (r) { entrarConGoogle(r.credential); }
+          });
+          google.accounts.id.renderButton($("#boton-google"), {
+            theme: raiz.getAttribute("data-luz") === "sol" ? "outline" : "filled_black",
+            size: "large",
+            text: "continue_with",
+            locale: "es",
+            width: 300
+          });
+        })
+        .catch(function () {
+          $("#entrada-error").textContent = "No se ha podido preparar la entrada con Google. Usa la clave larga.";
+        });
+    };
+    var script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = pintar;
+    script.onerror = function () {
+      $("#entrada-error").textContent = "Google no responde. Usa la clave larga.";
+    };
+    document.head.appendChild(script);
+  }
 
   // Compartir desde el móvil: iOS abre la app con ?texto=... y eso entra
   // directo en la bandeja, sin que haya que teclear nada.

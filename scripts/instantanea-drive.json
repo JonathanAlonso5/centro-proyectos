@@ -1,13 +1,13 @@
 {
-  "tomada": "2026-08-06T20:59:46.040Z",
+  "tomada": "2026-08-06T21:41:59.837Z",
   "proyectos": [
     {
       "id": "P-001",
       "nombre": "Centro de Proyectos",
       "descripcion": "Esta misma app: tracker personal de proyectos. Web HTML + Drive JSON, desplegada en Cloudflare Pages, repo público en GitHub. En camino: MCP server propio para que cualquier Claude lea/escriba aqui, y Claude API embebida.",
       "estado": "activo",
-      "progreso": 80,
-      "proximoPaso": "VERIFICAR EN PROD el fix de sincronización (2026-07-04): mueve una tarea o edita un campo en la web, cierra una sesión de Claude que escriba vía MCP, y confirma que ya NO se pisan mutuamente (antes reaparecían tareas hechas). Consolidación de Drive resuelta: el MCP ya resuelve el fichero por nombre (findCanonicalFileId) + dedupe-on-save + conector OAuth. PENDIENTE real: Fase 4 = embeber Claude API en la app (botones resumir/priorizar). Opcional/aparcado: Fase 2 migrar storage Drive JSON → Cloudflare D1 (eliminaría de raíz la concurrencia sobre un único fichero).",
+      "progreso": 90,
+      "proximoPaso": "SEGUNDO CEREBRO CONSTRUIDO (2026-08-06), en la rama `segundo-cerebro`, sin mezclar a main todavía. FALTA UN CLIC TUYO: panel de Cloudflare → centro-proyectos → Settings → Bindings → D1 database, variable `CDP` → base `cdp`, en Production y Preview, y Retry del último deploy. Hasta eso, producción sigue con la web vieja. Luego: merge de la rama a main. HECHO: almacén en D1 con modelo de nodos (19 proyectos, 940 tareas, 114 notas de la memoria con 226 enlaces); las 7 herramientas MCP de siempre intactas (265 comprobaciones de contrato en verde) más 8 nuevas del cerebro; web rehecha con Kanban dual (proyectos y tareas), Cerebro y Bandeja, luz en tres grados (Noche/Interior/Sol) y sin scroll lateral en móvil; cdp-sync.mjs deja los .md de memoria como caché del CdP. PENDIENTE MENOR, en el VPS: comando de captura en el bot de Telegram y cron de scripts/captura-correo.py. Detalle en docs/operaciones.md y en la spec docs/superpowers/specs/2026-08-06-cdp-kanban-segundo-cerebro-design.md.",
       "tags": [
         "meta",
         "web",
