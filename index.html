@@ -2,1822 +2,1074 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Centro de Proyectos</title>
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#1a1a1a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="CdP">
-  <link rel="apple-touch-icon" href="/icons/icon-192.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://apis.google.com/js/api.js"></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#101318">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CdP">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <style>
+  /* ============ LUZ ============
+     Tres grados en vez de claro/oscuro: "que no deslumbre" y "que se lea con
+     cualquier luz" no caben en una sola paleta. Sin negro puro ni blanco puro. */
   :root {
-    --ink: #1a1814;
-    --paper: #f5f1e8;
-    --paper-warm: #ebe4d2;
-    --accent: #c84b1d;
-    --accent-soft: #e8a987;
-    --muted: #8a8275;
-    --line: #d4ccb8;
-    --green: #5a7a3a;
-    --amber: #c89a2e;
-    --slate: #4a5568;
-    --red: #b03030;
+    --ground:#101318; --surface:#161b22; --raised:#1c222b; --sunk:#0d1015;
+    --line:#28303a; --line-soft:#1f262e;
+    --text:#d5dae0; --text-dim:#a9b2bc; --muted:#7f8996;
+    --accent:#c08a4a; --accent-soft:#5c452a;
+    --ok:#5f9b6a; --warn:#bd9a2c; --crit:#c05a52;
+    --shadow:0 1px 0 rgba(255,255,255,.03), 0 2px 12px rgba(0,0,0,.35);
+    --radius:7px;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root[data-luz="noche"] {
+    --ground:#080a0d; --surface:#0d1014; --raised:#12161b; --sunk:#050709;
+    --line:#1d232a; --line-soft:#161b21;
+    --text:#b6bcc4; --text-dim:#8e969f; --muted:#6b747e;
+    --accent:#a4763f; --accent-soft:#493623;
+    --ok:#4f8459; --warn:#9d8125; --crit:#a34a44;
+    --shadow:0 2px 14px rgba(0,0,0,.5);
+  }
+  :root[data-luz="sol"] {
+    --ground:#e4e6e3; --surface:#eeefec; --raised:#f4f5f2; --sunk:#dadcd8;
+    --line:#c6cac4; --line-soft:#d5d8d3;
+    --text:#171b20; --text-dim:#39414a; --muted:#5d6670;
+    --accent:#8a5a1e; --accent-soft:#e0d3bf;
+    --ok:#2f6b3c; --warn:#7d6410; --crit:#93342c;
+    --shadow:0 1px 2px rgba(20,25,30,.08), 0 2px 10px rgba(20,25,30,.06);
+  }
+
+  * { box-sizing:border-box; }
+  html, body { overflow-x:hidden; }
   body {
-    font-family: 'Fraunces', serif;
-    background: var(--paper);
-    color: var(--ink);
-    min-height: 100vh;
-    background-image:
-      radial-gradient(circle at 20% 10%, rgba(200,75,29,0.04) 0%, transparent 40%),
-      radial-gradient(circle at 80% 80%, rgba(90,122,58,0.04) 0%, transparent 40%);
+    margin:0; background:var(--ground); color:var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased;
+    padding-bottom:env(safe-area-inset-bottom);
   }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric:tabular-nums; }
+  button, input, textarea, select { font:inherit; color:inherit; }
+  button { background:none; border:none; cursor:pointer; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
 
-  /* ---------- LOGIN ---------- */
-  .login-screen {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
+  /* ============ ENTRADA ============ */
+  .entrada { position:fixed; inset:0; z-index:60; display:grid; place-items:center; background:var(--ground); padding:20px; }
+  .entrada-caja { width:min(360px,100%); }
+  .entrada h1 { font-size:20px; font-weight:600; margin:0 0 6px; letter-spacing:-.01em; }
+  /* Sin esto, el display:grid de .entrada gana al display:none del atributo
+     hidden: la pantalla de acceso se queda invisible pero encima de todo,
+     tragándose los clics del tablero. */
+  .entrada[hidden] { display:none; }
+  .entrada p { color:var(--muted); font-size:13.5px; margin:0 0 18px; line-height:1.5; }
+  .entrada input {
+    width:100%; background:var(--surface); border:1px solid var(--line); color:var(--text);
+    padding:11px 13px; border-radius:var(--radius); margin-bottom:10px;
   }
-  .login-card {
-    max-width: 460px;
-    text-align: center;
-    padding: 48px 40px;
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(26,24,20,0.08);
+  .entrada input:focus { border-color:var(--accent); outline:none; }
+  .entrada button {
+    width:100%; background:var(--accent-soft); border:1px solid var(--accent);
+    color:var(--text); padding:10px; border-radius:var(--radius); font-weight:550;
   }
-  .login-card h1 {
-    font-size: 36px;
-    font-weight: 500;
-    margin-bottom: 12px;
-    letter-spacing: -0.02em;
-    font-variation-settings: "opsz" 144;
-  }
-  .login-card h1 em {
-    font-style: italic;
-    color: var(--accent);
-    font-weight: 400;
-  }
-  .login-card p {
-    color: var(--muted);
-    font-style: italic;
-    margin-bottom: 32px;
-    line-height: 1.5;
-  }
-  .google-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 24px;
-    background: var(--ink);
-    color: var(--paper);
-    border: none;
-    border-radius: 8px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    transition: transform 0.15s;
-  }
-  .google-btn:hover { transform: translateY(-1px); }
-  .google-btn:disabled { opacity: 0.5; cursor: wait; }
-  .login-meta {
-    margin-top: 32px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    line-height: 1.8;
-  }
+  .entrada .error { color:var(--crit); font-size:13px; min-height:19px; margin-top:8px; }
+  .respaldo { margin-top:20px; border-top:1px solid var(--line-soft); padding-top:14px; }
+  .respaldo summary { color:var(--muted); font-size:12.5px; cursor:pointer; }
+  .respaldo p { font-size:12px; margin:10px 0 8px; }
+  #boton-google { min-height:44px; display:flex; justify-content:center; }
 
-  /* ---------- HEADER ---------- */
-  header {
-    border-bottom: 1px solid var(--line);
-    padding: 24px 40px;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    background: var(--paper);
-    position: sticky;
-    top: 0;
-    z-index: 10;
+  /* ============ BARRA ============ */
+  .barra {
+    position:sticky; top:0; z-index:30; background:var(--ground);
+    border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top);
   }
-  .logo {
-    font-size: 28px;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    font-variation-settings: "opsz" 144;
-  }
-  .logo em {
-    font-style: italic;
-    color: var(--accent);
-    font-weight: 400;
-  }
-  .meta {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .header-right { display: flex; gap: 16px; align-items: center; }
-  .sync-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .sync-indicator.connected { color: var(--green); }
-  .sync-indicator.saving { color: var(--amber); }
-  .sync-indicator.error { color: var(--red); }
-  .sync-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: pulse 2s infinite;
-  }
-  .logout-btn {
-    background: none;
-    border: 1px solid var(--line);
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    cursor: pointer;
-  }
-  .logout-btn:hover { color: var(--ink); border-color: var(--ink); }
+  .barra-fila { display:flex; align-items:center; gap:14px; padding:9px 14px; max-width:1500px; margin:0 auto; }
+  .marca { display:flex; align-items:baseline; gap:8px; flex-shrink:0; }
+  .marca b { font-weight:600; font-size:15px; letter-spacing:-.01em; }
+  .sincro { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .sincro.guardando { color:var(--accent); }
+  .sincro.error { color:var(--crit); }
+  .barra-espacio { flex:1; }
+  .pestanas { display:flex; gap:2px; background:var(--sunk); padding:3px; border-radius:var(--radius); border:1px solid var(--line-soft); }
+  .pestanas button { padding:6px 12px; border-radius:5px; font-size:13px; color:var(--muted); white-space:nowrap; }
+  .pestanas button[aria-selected="true"] { background:var(--raised); color:var(--text); box-shadow:var(--shadow); }
+  .pestanas .cuenta { font-size:11px; color:var(--accent); margin-left:5px; }
+  .luz-grupo { display:flex; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+  .luz-grupo button { padding:5px 10px; font-size:12px; color:var(--muted); border-right:1px solid var(--line); }
+  .luz-grupo button:last-child { border-right:none; }
+  .luz-grupo button[aria-pressed="true"] { background:var(--accent-soft); color:var(--text); }
 
-  /* ---------- TOOLBAR ---------- */
-  .toolbar {
-    padding: 24px 40px;
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--line);
+  /* ============ CAPTURA ============ */
+  .captura { border-bottom:1px solid var(--line); background:var(--sunk); }
+  .captura-fila { max-width:1500px; margin:0 auto; padding:8px 14px; display:flex; gap:9px; align-items:center; }
+  .captura input {
+    flex:1; background:var(--surface); border:1px solid var(--line); color:var(--text);
+    padding:9px 12px; border-radius:var(--radius); font-size:14px; min-width:0;
   }
-  .filter-group {
-    display: flex;
-    gap: 4px;
-    background: var(--paper-warm);
-    padding: 4px;
-    border-radius: 8px;
-  }
-  .filter-btn {
-    padding: 6px 14px;
-    border: none;
-    background: transparent;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    cursor: pointer;
-    border-radius: 5px;
-    transition: all 0.2s;
-  }
-  .filter-btn:hover { color: var(--ink); }
-  .filter-btn.active {
-    background: var(--ink);
-    color: var(--paper);
-  }
-  .search {
-    flex: 1;
-    max-width: 300px;
-    padding: 8px 14px;
-    border: 1px solid var(--line);
-    background: var(--paper);
-    font-family: 'Fraunces', serif;
-    font-size: 14px;
-    border-radius: 6px;
-    color: var(--ink);
-  }
-  .search:focus { outline: none; border-color: var(--accent); }
-  .add-btn {
-    margin-left: auto;
-    padding: 8px 18px;
-    background: var(--accent);
-    color: var(--paper);
-    border: none;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: transform 0.15s;
-  }
-  .add-btn:hover { transform: translateY(-1px); }
+  .captura input::placeholder { color:var(--muted); }
+  .captura input:focus { border-color:var(--accent); outline:none; }
+  .captura button { border:1px solid var(--line); border-radius:var(--radius); padding:9px 14px; color:var(--text-dim); font-size:13.5px; }
+  .captura button:hover { border-color:var(--accent); color:var(--text); }
 
-  /* ---------- WEEK VIEW ---------- */
-  .week-view {
-    margin: 32px 40px;
-    padding: 24px;
-    background: linear-gradient(135deg, #2a2620 0%, #1a1814 100%);
-    color: var(--paper);
-    border-radius: 12px;
-    position: relative;
-    overflow: hidden;
+  /* ============ TABLERO ============ */
+  main { max-width:1500px; margin:0 auto; padding:14px; }
+  .vista[hidden] { display:none; }
+  .tablero { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(250px,1fr); gap:12px; align-items:start; }
+  .col { background:var(--surface); border:1px solid var(--line-soft); border-radius:var(--radius); display:flex; flex-direction:column; min-width:0; }
+  .col.destino { border-color:var(--accent); background:var(--raised); }
+  .col-cab { display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--line-soft); }
+  .col-cab h2 { margin:0; font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-dim); font-weight:600; }
+  .col-cab .n { margin-left:auto; font-size:11px; color:var(--muted); }
+  .col-punto { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .col-cuerpo { padding:8px; display:flex; flex-direction:column; gap:8px; min-height:20px; }
+  .col-pie { padding:0 12px 10px; font-size:11px; color:var(--muted); }
+  .col-alta { padding:0 8px 8px; }
+  .col-alta input {
+    width:100%; background:var(--sunk); border:1px dashed var(--line); color:var(--text);
+    padding:7px 10px; border-radius:6px; font-size:13px;
   }
-  .week-view::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -10%;
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(232,169,135,0.15) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  .week-view h2 {
-    font-size: 14px;
-    font-family: 'JetBrains Mono', monospace;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--accent-soft);
-    margin-bottom: 16px;
-  }
-  .week-tasks {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-  }
-  .week-task {
-    padding: 12px 16px;
-    background: rgba(255,255,255,0.05);
-    border-left: 2px solid var(--accent);
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  .week-task:hover { background: rgba(255,255,255,0.1); }
-  .week-task .proj {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--accent-soft);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 4px;
-  }
-  .week-task .task {
-    font-size: 15px;
-    font-weight: 400;
-  }
+  .col-alta input:focus { border-style:solid; border-color:var(--accent); outline:none; }
 
-  /* ---------- GRID ---------- */
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
-    padding: 0 40px 40px;
-  }
-  .card {
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 24px;
-    cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-  }
-  .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(26,24,20,0.12);
-    border-color: var(--ink);
-  }
-  .card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--status-color, var(--muted));
-  }
-  .card[data-status="activo"] { --status-color: var(--green); }
-  .card[data-status="pausado"] { --status-color: var(--amber); }
-  .card[data-status="planificacion"] { --status-color: var(--slate); }
-  .card[data-status="completado"] { --status-color: var(--muted); }
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-  }
-  .card-id {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.1em;
-  }
-  .status-badge {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    padding: 3px 8px;
-    border-radius: 3px;
-    background: var(--status-color);
-    color: var(--paper);
-  }
-  .card h3 {
-    font-size: 22px;
-    font-weight: 500;
-    line-height: 1.2;
-    margin-bottom: 8px;
-    letter-spacing: -0.01em;
-    font-variation-settings: "opsz" 144;
-  }
-  .card .description {
-    font-size: 14px;
-    color: var(--muted);
-    line-height: 1.5;
-    margin-bottom: 16px;
-    font-style: italic;
-  }
-  .progress-section { margin-bottom: 14px; }
-  .progress-label {
-    display: flex;
-    justify-content: space-between;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-  }
-  .progress-bar {
-    height: 4px;
-    background: var(--paper-warm);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .progress-fill {
-    height: 100%;
-    background: var(--status-color, var(--accent));
-    border-radius: 2px;
-    transition: width 0.4s;
-  }
-  .next-step {
-    padding-top: 14px;
-    border-top: 1px dashed var(--line);
-    font-size: 13px;
-  }
-  .next-step .label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    display: block;
-    margin-bottom: 4px;
-  }
-  .next-step .text { color: var(--ink); line-height: 1.4; }
-  .tags { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
-  .tag {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 2px 7px;
-    background: var(--paper-warm);
-    color: var(--muted);
-    border-radius: 3px;
-  }
+  /* ============ TARJETAS ============ */
+  .tj { background:var(--raised); border:1px solid var(--line); border-radius:6px; padding:10px 11px; text-align:left; width:100%; display:block; }
+  .tj:hover { border-color:var(--accent); }
+  .tj.arrastrando { opacity:.4; }
+  .tj-sup { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+  .tj-id { font-size:10.5px; color:var(--muted); }
+  .tj-t { font-size:14px; font-weight:550; line-height:1.3; margin:0; overflow-wrap:anywhere; }
+  .tj-paso { font-size:12px; color:var(--text-dim); margin:7px 0 0; line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .tj-pie { display:flex; align-items:center; gap:8px; margin-top:9px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
+  .barra-prog { height:3px; background:var(--sunk); border-radius:2px; overflow:hidden; margin-top:9px; }
+  .barra-prog i { display:block; height:100%; background:var(--accent); }
+  .etq { font-size:10.5px; color:var(--muted); border:1px solid var(--line); padding:1.5px 6px; border-radius:20px; }
+  .etq.proj { color:var(--accent); border-color:var(--accent-soft); }
+  .tj.hecha { opacity:.55; }
+  .tj.hecha .tj-t { text-decoration:line-through; text-decoration-color:var(--muted); }
+  .mover { margin-left:auto; border:1px solid var(--line); border-radius:5px; padding:3px 8px; font-size:11px; color:var(--muted); }
+  .mover:hover { border-color:var(--accent); color:var(--text); }
 
-  /* ---------- MODAL ---------- */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(26,24,20,0.5);
-    backdrop-filter: blur(4px);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--paper);
-    border-radius: 12px;
-    width: 100%;
-    max-width: 900px;
-    max-height: 90vh;
-    overflow-y: auto;
-    padding: 32px;
-    position: relative;
-  }
-  .modal-close {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--muted);
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    transition: background 0.2s;
-  }
-  .modal-close:hover { background: var(--paper-warm); }
-  .modal h2 {
-    font-size: 32px;
-    font-weight: 500;
-    margin-bottom: 8px;
-    letter-spacing: -0.02em;
-    font-variation-settings: "opsz" 144;
-  }
-  .modal .subtitle {
-    color: var(--muted);
-    font-style: italic;
-    margin-bottom: 24px;
-  }
-  .editable {
-    cursor: text;
-    padding: 4px 8px;
-    margin: -4px -8px;
-    border-radius: 4px;
-    transition: background 0.15s;
-  }
-  .editable:hover { background: var(--paper-warm); }
-  .editable[contenteditable="true"]:focus {
-    outline: 2px solid var(--accent);
-    background: var(--paper);
-  }
-  .modal-controls {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .control-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  select, .progress-input {
-    padding: 6px 10px;
-    border: 1px solid var(--line);
-    background: var(--paper);
-    border-radius: 5px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--ink);
-  }
-  .progress-input { width: 60px; }
-  .danger-btn {
-    margin-left: auto;
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--red);
-    padding: 6px 12px;
-    border-radius: 5px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-  }
-  .danger-btn:hover { background: var(--red); color: var(--paper); border-color: var(--red); }
-  .kanban {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-top: 24px;
-  }
-  .column {
-    background: var(--paper-warm);
-    border-radius: 8px;
-    padding: 14px;
-    min-height: 200px;
-  }
-  .column h4 {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--line);
-  }
-  .task-card {
-    background: var(--paper);
-    padding: 10px 12px;
-    border-radius: 6px;
-    margin-bottom: 8px;
-    font-size: 13px;
-    line-height: 1.4;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    border-left: 2px solid var(--line);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .task-card.priority { border-left-color: var(--accent); }
-  .task-card .drag-handle {
-    color: var(--line);
-    cursor: grab;
-    touch-action: none;
-    flex-shrink: 0;
-    line-height: 1;
-    font-size: 14px;
-    letter-spacing: -2px;
-    padding: 0 4px;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .task-card .drag-handle:hover { color: var(--accent); }
-  .task-card.dragging {
-    opacity: 0.85;
-    box-shadow: 0 14px 36px rgba(26,24,20,0.25);
-    transform: rotate(1.5deg) scale(1.02);
-    cursor: grabbing;
-    z-index: 1000;
-  }
-  .task-card .drag-handle:active { cursor: grabbing; }
-  .column.dropzone {
-    transition: background 0.15s, outline 0.15s;
-    outline: 2px dashed transparent;
-    outline-offset: -4px;
-  }
-  .column.drag-over {
-    background: rgba(200,75,29,0.08);
-    outline-color: var(--accent);
-  }
-  .task-card .task-actions {
-    display: flex;
-    gap: 4px;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-  .task-card:hover .task-actions { opacity: 1; }
-  /* On touch devices, always show actions (no hover) */
-  @media (hover: none) {
-    .task-card .task-actions { opacity: 1; }
-  }
-  .task-card button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--muted);
-    font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 3px;
-  }
-  .task-card button:hover { background: var(--paper-warm); color: var(--ink); }
-  .add-task-form {
-    display: flex;
-    gap: 6px;
-    margin-top: 4px;
-  }
-  .add-task-form input {
-    flex: 1;
-    padding: 6px 10px;
-    border: 1px dashed var(--line);
-    border-radius: 4px;
-    background: transparent;
-    font-family: 'Fraunces', serif;
-    font-size: 13px;
-    color: var(--ink);
-  }
-  .add-task-form input:focus { outline: none; border-color: var(--accent); }
-  .add-task-form button {
-    padding: 4px 10px;
-    background: var(--ink);
-    color: var(--paper);
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-  }
-  .modal-section { margin-top: 24px; }
-  .modal-section h3 {
-    font-size: 13px;
-    font-family: 'JetBrains Mono', monospace;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--muted);
-    margin-bottom: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .small-add {
-    background: none;
-    border: 1px solid var(--line);
-    padding: 4px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .small-add:hover { color: var(--ink); border-color: var(--ink); }
-  .notes-area {
-    width: 100%;
-    min-height: 100px;
-    padding: 14px;
-    background: var(--paper-warm);
-    border: none;
-    border-radius: 8px;
-    font-family: 'Fraunces', serif;
-    font-size: 14px;
-    color: var(--ink);
-    resize: vertical;
-    line-height: 1.6;
-  }
-  .notes-area:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .roadmap-item {
-    display: flex;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px dashed var(--line);
-    align-items: center;
-  }
-  .roadmap-item:last-child { border-bottom: none; }
-  .roadmap-marker {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    flex-shrink: 0;
-    cursor: pointer;
-    border: 2px solid var(--accent);
-  }
-  .roadmap-marker.done { background: var(--green); border-color: var(--green); }
-  .roadmap-marker.future { background: transparent; border-color: var(--muted); }
-  .roadmap-when, .roadmap-what {
-    border: none;
-    background: transparent;
-    font-family: 'Fraunces', serif;
-    font-size: 14px;
-    color: var(--ink);
-    padding: 4px 8px;
-    border-radius: 4px;
-  }
-  .roadmap-when {
-    width: 100px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .roadmap-what { flex: 1; }
-  .roadmap-when:focus, .roadmap-what:focus {
-    outline: 1px solid var(--accent);
-    background: var(--paper);
-  }
-  .roadmap-delete {
-    background: none;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 4px 8px;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-  .roadmap-item:hover .roadmap-delete { opacity: 1; }
-  .empty-hint {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--muted);
-    font-style: italic;
-  }
+  .selector-col { display:none; gap:6px; margin-bottom:12px; overflow-x:auto; padding-bottom:2px; }
+  .selector-col button { padding:7px 13px; border:1px solid var(--line); border-radius:20px; font-size:13px; color:var(--muted); white-space:nowrap; }
+  .selector-col button[aria-pressed="true"] { background:var(--raised); color:var(--text); border-color:var(--accent); }
 
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+  /* ============ FILTROS Y BUSCADOR ============ */
+  .buscador { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  .buscador input {
+    flex:1; min-width:200px; background:var(--surface); border:1px solid var(--line);
+    color:var(--text); padding:9px 12px; border-radius:var(--radius);
   }
-  @media (max-width: 640px) {
-    /* === Mobile-first === */
-    header { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
-    .logo { font-size: 22px; }
-    .meta { font-size: 10px; }
-    .header-right { width: 100%; justify-content: space-between; }
+  .buscador input:focus { border-color:var(--accent); outline:none; }
+  .filtros { display:flex; gap:5px; flex-wrap:wrap; }
+  .filtros button { font-size:12px; padding:6px 11px; border:1px solid var(--line); border-radius:20px; color:var(--muted); }
+  .filtros button[aria-pressed="true"] { border-color:var(--accent); color:var(--text); background:var(--accent-soft); }
 
-    .toolbar { padding: 14px 16px; gap: 10px; }
-    .filter-group {
-      width: 100%;
-      flex-wrap: wrap;
-      justify-content: flex-start;
-      padding: 4px;
-    }
-    .filter-btn {
-      flex: 0 0 auto;
-      padding: 9px 14px;
-      font-size: 11px;
-      min-height: 36px;
-    }
-    .search {
-      flex: 1 1 100%;
-      max-width: none;
-      order: 2;
-      padding: 12px 14px;
-      font-size: 16px; /* prevent iOS zoom on focus */
-      min-height: 44px;
-    }
-    .add-btn {
-      flex: 1 1 100%;
-      margin-left: 0;
-      text-align: center;
-      padding: 14px 18px;
-      font-size: 12px;
-      order: 3;
-      min-height: 48px;
-    }
+  /* ============ CEREBRO ============ */
+  .notas { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; }
+  .nt { background:var(--surface); border:1px solid var(--line-soft); border-radius:var(--radius); padding:12px 13px; text-align:left; }
+  .nt:hover { border-color:var(--accent); }
+  .nt-tipo { font-size:10px; letter-spacing:.1em; text-transform:uppercase; font-weight:600; }
+  .t-gotcha { color:var(--crit); } .t-feedback { color:var(--warn); }
+  .t-reference { color:var(--accent); } .t-project { color:var(--ok); } .t-user { color:var(--text-dim); }
+  .nt h3 { margin:6px 0 0; font-size:14.5px; font-weight:550; line-height:1.3; }
+  .nt p { margin:6px 0 0; font-size:12.5px; color:var(--text-dim); line-height:1.45;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .nt-pie { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; align-items:center; }
 
-    .week-view { margin: 16px; padding: 18px; }
-    .week-view h2 { font-size: 12px; margin-bottom: 12px; }
-    .week-task { padding: 14px 16px; }
-    .week-task .task { font-size: 14px; line-height: 1.35; }
-    .week-tasks { grid-template-columns: 1fr; gap: 8px; }
+  /* ============ BANDEJA ============ */
+  .bandeja { display:flex; flex-direction:column; gap:8px; max-width:840px; }
+  .cap { display:flex; gap:11px; align-items:flex-start; background:var(--surface); border:1px solid var(--line-soft); border-radius:var(--radius); padding:11px 12px; }
+  .cap-via { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:3px 6px; margin-top:1px; width:66px; text-align:center; flex-shrink:0; }
+  .cap-cuerpo { flex:1; min-width:0; }
+  .cap-cuerpo p { margin:0; font-size:14px; line-height:1.4; overflow-wrap:anywhere; }
+  .cap-meta { font-size:11px; color:var(--muted); margin-top:5px; }
+  .cap-acc { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+  .cap-acc button, .cap-acc select { font-size:11.5px; border:1px solid var(--line); border-radius:5px; padding:5px 9px; color:var(--text-dim); background:var(--surface); }
+  .cap-acc button:hover { border-color:var(--accent); color:var(--text); }
 
-    .grid { padding: 0 16px 80px; grid-template-columns: 1fr; gap: 14px; }
-    .card { padding: 18px 18px 16px; }
-    .card h3 { font-size: 19px; }
-    .card .description { font-size: 13px; margin-bottom: 12px; }
-    .progress-section { margin-bottom: 12px; }
+  /* ============ PANEL ============ */
+  .velo { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:40; }
+  .velo[hidden], .panel[hidden] { display:none; }
+  .panel {
+    position:fixed; top:0; right:0; bottom:0; width:min(470px,100%); z-index:41;
+    background:var(--surface); border-left:1px solid var(--line); overflow-y:auto;
+    padding:calc(16px + env(safe-area-inset-top)) 18px 60px;
+  }
+  .panel-cab { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .panel .cerrar { margin-left:auto; font-size:22px; color:var(--muted); line-height:1; padding:2px 6px; }
+  .panel h2 { margin:8px 0 0; font-size:19px; font-weight:600; line-height:1.25; }
+  .panel h2[contenteditable]:focus { outline:none; border-bottom:1px solid var(--accent); }
+  .campo { display:grid; grid-template-columns:96px 1fr; gap:8px; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:13px; align-items:center; }
+  .campo dt { color:var(--muted); font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; }
+  .campo dd { margin:0; min-width:0; }
+  .campo input, .campo select, .campo textarea {
+    width:100%; background:var(--sunk); border:1px solid var(--line); color:var(--text);
+    padding:6px 9px; border-radius:5px; font-size:13px;
+  }
+  .campo input:focus, .campo select:focus, .campo textarea:focus { border-color:var(--accent); outline:none; }
+  .campo textarea { resize:vertical; min-height:70px; line-height:1.45; }
+  .contador { font-size:11px; color:var(--muted); text-align:right; margin-top:3px; }
+  .contador.pasado { color:var(--crit); }
+  .panel-sec { margin-top:22px; }
+  .panel-sec h3 { font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .panel-sec h3 span { margin-left:auto; text-transform:none; letter-spacing:0; }
+  .fila { display:flex; gap:8px; align-items:baseline; padding:7px 0; border-bottom:1px solid var(--line-soft); font-size:13px; }
+  .fila-tipo { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; width:80px; flex-shrink:0; }
+  .fila a, .fila button.enlace { color:var(--accent); text-decoration:none; text-align:left; padding:0; }
+  .fila a:hover, .fila button.enlace:hover { text-decoration:underline; }
+  .panel-cuerpo { margin-top:14px; font-size:13.5px; color:var(--text-dim); line-height:1.55; white-space:pre-wrap; }
+  .peligro { margin-top:26px; font-size:12px; color:var(--muted); }
+  .peligro button { color:var(--crit); border:1px solid var(--line); border-radius:5px; padding:6px 11px; font-size:12px; }
 
-    /* Modal -> full screen takeover on mobile */
-    .modal-overlay.open { padding: 0; align-items: stretch; }
-    .modal {
-      max-width: 100%;
-      max-height: 100vh;
-      width: 100%;
-      height: 100vh;
-      border-radius: 0;
-      padding: 64px 18px 24px;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .modal-close {
-      top: 14px;
-      right: 14px;
-      width: 40px;
-      height: 40px;
-      font-size: 26px;
-      background: var(--paper-warm);
-    }
-    .modal h2 { font-size: 26px; }
-    .modal .subtitle { font-size: 14px; }
-    .modal-controls { gap: 10px; }
-    .danger-btn { margin-left: 0; width: 100%; text-align: center; padding: 10px; min-height: 44px; }
+  /* ============ MENÚ MOVER ============ */
+  .menu { position:fixed; z-index:50; background:var(--raised); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:5px; min-width:170px; }
+  .menu[hidden] { display:none; }
+  .menu button { display:block; width:100%; text-align:left; padding:9px 12px; border-radius:5px; font-size:13.5px; color:var(--text-dim); }
+  .menu button:hover { background:var(--accent-soft); color:var(--text); }
 
-    .kanban {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-    .column { padding: 14px 12px; }
-    .column h4 { font-size: 12px; }
+  /* ============ AVISO ============ */
+  .aviso {
+    position:fixed; left:50%; transform:translateX(-50%); bottom:calc(18px + env(safe-area-inset-bottom));
+    background:var(--raised); border:1px solid var(--line); border-radius:var(--radius);
+    padding:10px 16px; font-size:13.5px; z-index:70; box-shadow:var(--shadow); max-width:90vw;
+  }
+  .aviso[hidden] { display:none; }
+  .aviso.mal { border-color:var(--crit); color:var(--crit); }
 
-    .task-card {
-      padding: 14px 12px;
-      font-size: 14px;
-      line-height: 1.4;
-      min-height: 44px;
-    }
-    .task-card .drag-handle { font-size: 18px; padding: 0 6px; }
+  .vacio { color:var(--muted); font-size:13.5px; padding:10px 2px; }
 
-    .add-task-form input { min-height: 40px; padding: 10px 12px; font-size: 16px; }
-    .add-task-form button { min-width: 40px; min-height: 40px; }
-
-    .roadmap-when { width: 80px; font-size: 10px; }
-    .roadmap-what { font-size: 14px; }
-    .roadmap-delete { opacity: 1; padding: 8px 10px; }
-
-    .notes-area { font-size: 16px; }
+  @media (max-width:820px) {
+    .barra-fila { flex-wrap:wrap; gap:10px; }
+    .barra-espacio { display:none; }
+    /* Rejilla de cuatro en vez de fila con scroll: una barra de pestañas que
+       se arrastra de lado es un scroll dentro de una página que ya baja. */
+    .pestanas { order:3; width:100%; display:grid; grid-template-columns:repeat(4,1fr); }
+    .pestanas button { padding:7px 3px; font-size:12.5px; text-align:center; }
+    .pestanas .cuenta { margin-left:3px; }
+    .tablero { grid-auto-flow:row; grid-auto-columns:auto; }
+    .col { display:none; }
+    .col.activa { display:flex; }
+    .selector-col { display:flex; }
+    main { padding:12px; }
+    .cap { flex-wrap:wrap; }
+    .cap-acc { width:100%; justify-content:flex-start; }
+    .campo { grid-template-columns:1fr; gap:4px; }
   }
 </style>
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
-<div class="login-screen" id="loginScreen">
-  <div class="login-card">
-    <h1>Centro de <em>Proyectos</em></h1>
-    <p>Tu base de operaciones personal. Conecta con Google Drive para empezar.</p>
-    <button class="google-btn" id="loginBtn" disabled>
-      <span id="loginBtnText">Cargando...</span>
-    </button>
-    <div class="login-meta">
-      Solo accede a archivos creados por la propia app<br>
-      Tus datos viven en tu Drive · No se envían a ningún otro sitio
-    </div>
+<div class="entrada" id="entrada" hidden>
+  <div class="entrada-caja">
+    <h1>Centro de Proyectos</h1>
+    <p>Entra con tu cuenta de Google. La sesión dura un mes en este dispositivo.</p>
+    <div id="boton-google"></div>
+    <div class="error" id="entrada-error"></div>
+    <details class="respaldo">
+      <summary>Entrar con la clave larga</summary>
+      <p>Solo si Google no va. Es la misma clave que usan el bot y los scripts.</p>
+      <input type="password" id="clave" placeholder="Clave" autocomplete="current-password">
+      <button id="entrar">Entrar con la clave</button>
+    </details>
   </div>
 </div>
 
-<!-- APP -->
-<div id="app" style="display:none;">
-  <header>
-    <div>
-      <div class="logo">Centro de <em>Proyectos</em></div>
-      <div class="meta" style="margin-top: 4px;" id="metaInfo">cargando...</div>
-    </div>
-    <div class="header-right">
-      <div class="sync-indicator connected" id="syncIndicator">
-        <span class="sync-dot"></span>
-        <span id="syncText">Drive conectado</span>
+<div id="app" hidden>
+  <div class="barra">
+    <div class="barra-fila">
+      <div class="marca"><b>Centro de Proyectos</b><span class="sincro" id="sincro">al día</span></div>
+      <div class="pestanas" role="tablist">
+        <button role="tab" data-vista="proyectos" aria-selected="true">Proyectos <span class="cuenta" id="c-proyectos"></span></button>
+        <button role="tab" data-vista="tareas" aria-selected="false">Tareas <span class="cuenta" id="c-tareas"></span></button>
+        <button role="tab" data-vista="cerebro" aria-selected="false">Cerebro <span class="cuenta" id="c-cerebro"></span></button>
+        <button role="tab" data-vista="bandeja" aria-selected="false">Bandeja <span class="cuenta" id="c-bandeja"></span></button>
       </div>
-      <button class="logout-btn" id="refreshBtn" title="Recargar datos desde Drive" aria-label="Recargar">↻</button>
-      <button class="logout-btn" id="logoutBtn">Salir</button>
+      <div class="barra-espacio"></div>
+      <div class="luz-grupo" id="luces">
+        <button data-luz="noche" aria-pressed="false">Noche</button>
+        <button data-luz="interior" aria-pressed="true">Interior</button>
+        <button data-luz="sol" aria-pressed="false">Sol</button>
+      </div>
     </div>
-  </header>
-
-  <div class="toolbar">
-    <div class="filter-group">
-      <button class="filter-btn active" data-filter="all">Todos</button>
-      <button class="filter-btn" data-filter="activo">Activos</button>
-      <button class="filter-btn" data-filter="pausado">Pausados</button>
-      <button class="filter-btn" data-filter="planificacion">Planificación</button>
-      <button class="filter-btn" data-filter="completado">Completados</button>
-    </div>
-    <input type="text" class="search" placeholder="Buscar proyecto..." id="search">
-    <button class="add-btn" id="addProjectBtn">+ Nuevo Proyecto</button>
   </div>
 
-  <div class="week-view">
-    <h2>⟶ Esta semana</h2>
-    <div class="week-tasks" id="weekTasks"></div>
+  <div class="captura">
+    <div class="captura-fila">
+      <input id="captura" type="text" placeholder="Suelta aquí lo que sea. Ya lo clasificas luego." autocomplete="off" enterkeyhint="done">
+      <button id="btn-captura">Capturar</button>
+    </div>
   </div>
 
-  <div class="grid" id="projectGrid"></div>
+  <main>
+    <section class="vista" id="v-proyectos">
+      <div class="selector-col" id="sel-proyectos"></div>
+      <div class="tablero" id="tab-proyectos"></div>
+    </section>
+
+    <section class="vista" id="v-tareas" hidden>
+      <div class="buscador">
+        <div class="filtros" id="filtros-tareas">
+          <button data-f="todas" aria-pressed="true">Todas</button>
+          <button data-f="mias" aria-pressed="false">Solo mías</button>
+        </div>
+      </div>
+      <div class="selector-col" id="sel-tareas"></div>
+      <div class="tablero" id="tab-tareas"></div>
+    </section>
+
+    <section class="vista" id="v-cerebro" hidden>
+      <div class="buscador">
+        <input id="buscar" type="text" placeholder="Buscar en el cerebro..." autocomplete="off" enterkeyhint="search">
+        <div class="filtros" id="filtros-notas">
+          <button data-t="todo" aria-pressed="true">Todo</button>
+          <button data-t="gotcha" aria-pressed="false">Gotchas</button>
+          <button data-t="feedback" aria-pressed="false">Cómo trabajar</button>
+          <button data-t="reference" aria-pressed="false">Referencias</button>
+          <button data-t="project" aria-pressed="false">Proyecto</button>
+        </div>
+      </div>
+      <div class="notas" id="lista-notas"></div>
+    </section>
+
+    <section class="vista" id="v-bandeja" hidden>
+      <div class="bandeja" id="lista-bandeja"></div>
+    </section>
+  </main>
 </div>
 
-<div class="modal-overlay" id="modal">
-  <div class="modal" id="modalContent"></div>
-</div>
+<div class="velo" id="velo" hidden></div>
+<aside class="panel" id="panel" hidden aria-label="Detalle"></aside>
+<div class="menu" id="menu" hidden></div>
+<div class="aviso" id="aviso" hidden></div>
 
+<script src="/pwa-init.js" defer></script>
 <script>
-// ============================================================
-// CONFIGURACIÓN
-// ============================================================
-const CLIENT_ID = '632850738128-1rdafo4d6sc5fmp2b71igof3fea9vv8m.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-const FILE_NAME = 'centro-proyectos-data.json';
+(function () {
+  "use strict";
 
-let tokenClient;
-let accessToken = null;
-let fileId = null;
-let proyectos = [];
-let saveTimeout = null;
-// Cola de operaciones pendientes de guardar. Cada mutación local encola una
-// operación SEMÁNTICA (mover tarea, editar campo…) en vez de "guardar todo el
-// array". Al hacer flush, releemos el fichero fresco de Drive y aplicamos solo
-// estas operaciones encima → nunca pisamos lo que escribió el MCP (Claude) ni
-// al revés. Ver saveToDrive/flushBatch. Corrige el bug de last-writer-wins.
-let pendingOps = [];
-let flushing = false;
+  // ---------- estado ----------
+  var datos = { proyectos: [], tareas: [], capturas: [], contadores: {} };
+  var notas = [];
+  var vista = "proyectos";
+  var filtroTareas = "todas";
+  var filtroNota = "todo";
+  var colActiva = {};
 
-// ============================================================
-// INICIALIZACIÓN GOOGLE
-// ============================================================
-function gapiLoaded() {
-  gapi.load('client', async () => {
-    await gapi.client.init({
-      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+  var COLS_PROYECTO = [
+    { k: "activo", t: "Activo", c: "var(--ok)" },
+    { k: "desarrollo", t: "En desarrollo", c: "var(--accent)" },
+    { k: "planificacion", t: "Planificación", c: "var(--warn)" },
+    { k: "pausado", t: "Pausado", c: "var(--muted)" },
+    { k: "completado", t: "Completado", c: "var(--line)" }
+  ];
+  var COLS_TAREA = [
+    { k: "porHacer", t: "Por hacer", c: "var(--muted)" },
+    { k: "enCurso", t: "En curso", c: "var(--accent)" },
+    { k: "hecho", t: "Hecho", c: "var(--ok)" }
+  ];
+  var SUBTIPOS = { gotcha: "Gotcha", feedback: "Cómo trabajar", reference: "Referencia", project: "Proyecto", user: "Sobre mí" };
+  var TOPE_PASO = 280;
+
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
-    checkReady();
-  });
-}
-
-function gisLoaded() {
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: async (response) => {
-      if (response.error) {
-        showSyncError('Error de autenticación');
-        return;
-      }
-      accessToken = response.access_token;
-      localStorage.setItem('cp_token', accessToken);
-      localStorage.setItem('cp_token_time', Date.now().toString());
-      await onAuthSuccess();
-    }
-  });
-  checkReady();
-}
-
-let gapiReady = false, gisReady = false;
-function checkReady() {
-  if (typeof gapi !== 'undefined' && gapi.client) gapiReady = true;
-  if (typeof tokenClient !== 'undefined') gisReady = true;
-  if (gapiReady && gisReady) {
-    const btn = document.getElementById('loginBtn');
-    const btnText = document.getElementById('loginBtnText');
-    btn.disabled = false;
-    btnText.textContent = 'Conectar con Google Drive';
-
-    // Auto-login si hay token guardado y reciente (< 50 min)
-    const savedToken = localStorage.getItem('cp_token');
-    const savedTime = parseInt(localStorage.getItem('cp_token_time') || '0');
-    if (savedToken && (Date.now() - savedTime) < 50 * 60 * 1000) {
-      accessToken = savedToken;
-      gapi.client.setToken({ access_token: accessToken });
-      onAuthSuccess();
-    }
-  }
-}
-
-// Esperar a que las librerías carguen
-const waitForLibs = setInterval(() => {
-  if (typeof gapi !== 'undefined' && typeof google !== 'undefined' && google.accounts) {
-    clearInterval(waitForLibs);
-    gapiLoaded();
-    gisLoaded();
-  }
-}, 100);
-
-document.getElementById('loginBtn').addEventListener('click', () => {
-  tokenClient.requestAccessToken({ prompt: '' });
-});
-
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  localStorage.removeItem('cp_token');
-  localStorage.removeItem('cp_token_time');
-  if (accessToken) google.accounts.oauth2.revoke(accessToken, () => {});
-  location.reload();
-});
-
-// Función de refresh expuesta globalmente para que pwa-init.js (interval
-// y cdpForceUpdate) la pueda llamar.
-window.cdpRefresh = async function () {
-  if (!accessToken) return;
-  // Resetear fileId fuerza a loadOrCreateFile a re-resolver el más reciente.
-  fileId = null;
-  await loadOrCreateFile();
-  render();
-};
-
-// Botón Refresh: fuerza chequeo de SW nuevo + relectura del Drive.
-// Útil cuando otra sesión / MCP ha escrito y el JS local sigue con el
-// fileId anterior, O cuando hay una versión nueva del HTML/SW pendiente.
-document.getElementById('refreshBtn').addEventListener('click', async () => {
-  if (!accessToken) { location.reload(); return; }
-  const btn = document.getElementById('refreshBtn');
-  btn.disabled = true;
-  btn.textContent = '…';
-  showSyncStatus('Recargando…', 'saving');
-  try {
-    // cdpForceUpdate hace primero swRegistration.update() para detectar SW
-    // nuevo (que disparará banner si lo hay) y luego cdpRefresh para
-    // releer Drive.
-    if (typeof window.cdpForceUpdate === 'function') {
-      await window.cdpForceUpdate();
-    } else {
-      await window.cdpRefresh();
-    }
-    showSyncStatus('Drive conectado', 'connected');
-  } catch (err) {
-    console.error('Refresh failed:', err);
-    showSyncError('Error al recargar: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '↻';
-  }
-});
-
-// Auto-refresh al volver a la pestaña tras >30s ausentes. Detecta el
-// caso típico de móvil: usuario cambia de app, otra sesión escribe en
-// Drive, vuelve a la pestaña y debería ver datos frescos sin tocar nada.
-let lastVisibleAt = Date.now();
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'hidden') {
-    lastVisibleAt = Date.now();
-    return;
-  }
-  // Visible — si han pasado más de 30s sin ver la pestaña, recarga.
-  if (!accessToken || !fileId) return;
-  if (Date.now() - lastVisibleAt < 30_000) return;
-  try {
-    showSyncStatus('Actualizando…', 'saving');
-    fileId = null;
-    await loadOrCreateFile();
-    render();
-    showSyncStatus('Drive conectado', 'connected');
-  } catch (err) {
-    console.warn('Auto-refresh on visibility failed (silent):', err);
-    // No mostramos error visible — el usuario no pidió refresco activo.
-  }
-});
-
-// ============================================================
-// AUTH SUCCESS → CARGAR DATOS
-// ============================================================
-async function onAuthSuccess() {
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  gapi.client.setToken({ access_token: accessToken });
-
-  showSyncStatus('Cargando datos...', 'saving');
-  try {
-    await loadOrCreateFile();
-    render();
-    showSyncStatus('Drive conectado', 'connected');
-  } catch (err) {
-    console.error(err);
-    showSyncError('Error al cargar: ' + err.message);
-  }
-}
-
-async function loadOrCreateFile() {
-  // Buscar el archivo (puede haber duplicados si se ha escrito desde un Skill
-  // que solo tiene create_file disponible; nos quedamos con el mas reciente y
-  // mandamos a la papelera los antiguos para limpiar el Drive sin intervencion).
-  //
-  // FIX 2026-05-16: gapi.client.drive.files.list/get cacheaba respuestas en el
-  // navegador (especialmente en PWA móvil + SW). Tras escribir via MCP la web
-  // seguía viendo el listing y el contenido viejos. Sustituido por fetch directo
-  // con `cache: 'no-store'` + parámetro `_t` cache-bust para garantizar
-  // respuestas frescas siempre.
-  const listUrl = `https://www.googleapis.com/drive/v3/files?` + new URLSearchParams({
-    q: `name='${FILE_NAME}' and trashed=false`,
-    fields: 'files(id,name,modifiedTime)',
-    orderBy: 'modifiedTime desc',
-    spaces: 'drive',
-    pageSize: '50',
-    _t: String(Date.now())
-  });
-  const listResp = await fetch(listUrl, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
-    cache: 'no-store'
-  });
-  if (!listResp.ok) throw new Error(`Drive list HTTP ${listResp.status} ${await listResp.text()}`);
-  const listJson = await listResp.json();
-  const files = listJson.files || [];
-
-  if (files.length > 0) {
-    fileId = files[0].id;
-    const modTime = new Date(files[0].modifiedTime);
-    document.getElementById('metaInfo').textContent =
-      `Última modificación: ${modTime.toLocaleString('es-ES')}`;
-
-    // Limpiar duplicados antiguos (los crea el Skill al "update" sin update API)
-    if (files.length > 1) {
-      console.log(`Encontrados ${files.length} duplicados de ${FILE_NAME}; mandando a papelera ${files.length - 1} antiguos`);
-      for (let i = 1; i < files.length; i++) {
-        try {
-          await fetch(`https://www.googleapis.com/drive/v3/files/${files[i].id}`, {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ trashed: true }),
-            cache: 'no-store'
-          });
-        } catch (e) {
-          console.warn('No se pudo trash duplicado', files[i].id, e);
-        }
-      }
-    }
-
-    // Descargar contenido — también fetch directo no-store para bypass cache
-    const getUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&_t=${Date.now()}`;
-    const getResp = await fetch(getUrl, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store'
-    });
-    if (!getResp.ok) throw new Error(`Drive get HTTP ${getResp.status}`);
-    const text = await getResp.text();
-    try {
-      const data = JSON.parse(text);
-      proyectos = data.proyectos || [];
-    } catch (e) {
-      console.error('JSON parse error:', e, text.slice(0, 200));
-      proyectos = [];
-    }
-  } else {
-    // Crear archivo nuevo con datos vacíos
-    proyectos = [];
-    await createFile();
-    document.getElementById('metaInfo').textContent = 'Archivo recién creado en tu Drive';
-  }
-}
-
-async function createFile() {
-  const metadata = {
-    name: FILE_NAME,
-    mimeType: 'application/json'
   };
-  const data = JSON.stringify({
-    version: 1,
-    proyectos: proyectos,
-    updated: new Date().toISOString()
-  }, null, 2);
 
-  const boundary = '-------centroproyectos';
-  const delimiter = `\r\n--${boundary}\r\n`;
-  const closeDelim = `\r\n--${boundary}--`;
+  // ---------- red ----------
+  var clave = function () { return localStorage.getItem("cdp_clave") || ""; };
 
-  const body =
-    delimiter +
-    'Content-Type: application/json\r\n\r\n' +
-    JSON.stringify(metadata) +
-    delimiter +
-    'Content-Type: application/json\r\n\r\n' +
-    data +
-    closeDelim;
-
-  const res = await gapi.client.request({
-    path: '/upload/drive/v3/files',
-    method: 'POST',
-    params: { uploadType: 'multipart' },
-    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-    body: body
-  });
-
-  fileId = res.result.id;
-}
-
-// Encola una operación semántica y programa el flush con debounce.
-function queueOp(op) {
-  pendingOps.push(op);
-  scheduleSave();
-}
-
-// Aplica una tanda de operaciones sobre un array de proyectos FRESCO (recién
-// leído de Drive). Idempotente en lo posible: las tareas se identifican por su
-// texto, no por índice, para no romperse si otra sesión reordenó la columna.
-function applyOps(arr, ops) {
-  const find = pid => arr.find(x => x.id === pid);
-  const ensure = p => {
-    if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
-    if (!Array.isArray(p.roadmap)) p.roadmap = [];
-  };
-  for (const op of ops) {
-    if (op.t === 'addProject') {
-      let proj = op.project;
-      if (arr.some(x => x.id === proj.id)) {
-        // Colisión de id (otra sesión creó uno en medio): recalcular.
-        proj = { ...proj, id: 'P-' + (arr.length + 1).toString().padStart(3, '0') };
-      }
-      arr.push(proj);
-      continue;
-    }
-    const p = find(op.pid);
-    if (!p) continue; // proyecto borrado en otra sesión → operación obsoleta
-    switch (op.t) {
-      case 'field':
-        p[op.field] = op.value;
-        break;
-      case 'addTask':
-        ensure(p);
-        p.tareas[op.col].push(op.text);
-        break;
-      case 'delTask': {
-        ensure(p);
-        const i = p.tareas[op.col].indexOf(op.text);
-        if (i >= 0) p.tareas[op.col].splice(i, 1);
-        break;
-      }
-      case 'moveTask': {
-        ensure(p);
-        const i = p.tareas[op.from].indexOf(op.text);
-        if (i >= 0) {
-          p.tareas[op.from].splice(i, 1);
-          p.tareas[op.to].push(op.text);
-        }
-        break;
-      }
-      case 'addRoadmap':
-        ensure(p);
-        p.roadmap.push(op.item);
-        break;
-      case 'delRoadmap':
-        ensure(p);
-        if (op.idx >= 0 && op.idx < p.roadmap.length) p.roadmap.splice(op.idx, 1);
-        break;
-      case 'rfield':
-        ensure(p);
-        if (p.roadmap[op.idx]) p.roadmap[op.idx][op.field] = op.value;
-        break;
-      case 'delProject': {
-        const idx = arr.findIndex(x => x.id === op.pid);
-        if (idx >= 0) arr.splice(idx, 1);
-        break;
-      }
-    }
-  }
-}
-
-// Escribe una tanda: relee el fichero fresco, aplica las ops encima y guarda.
-// Esto sustituye al "sobrescribir el array entero en memoria" que causaba que
-// la web pisara los cambios del MCP (tareas hechas que reaparecían).
-async function flushBatch(batch) {
-  const getUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&_t=${Date.now()}`;
-  const resp = await fetch(getUrl, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: 'no-store'
-  });
-  if (!resp.ok) throw new Error(`Drive read HTTP ${resp.status}`);
-  let data;
-  try {
-    data = JSON.parse(await resp.text());
-  } catch (e) {
-    throw new Error('Fichero Drive ilegible al guardar: ' + e.message);
-  }
-  if (!Array.isArray(data.proyectos)) data.proyectos = [];
-
-  applyOps(data.proyectos, batch);
-  data.version = data.version || 1;
-  data.updated = new Date().toISOString();
-
-  const wResp = await fetch(
-    `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
-    {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data, null, 2)
-    }
-  );
-  if (!wResp.ok) throw new Error(`Drive write HTTP ${wResp.status}`);
-
-  // Adoptar la verdad fusionada localmente: así la UI refleja también lo que
-  // escribió Claude/MCP en paralelo, sin recargar toda la página.
-  proyectos = data.proyectos;
-  render();
-}
-
-// Dedupe-on-save: manda a papelera duplicados que la vieja Drive skill pudiera
-// crear con create_file. Se ejecuta una vez tras un flush con éxito.
-async function dedupeAfterSave() {
-  try {
-    const listUrl = `https://www.googleapis.com/drive/v3/files?` + new URLSearchParams({
-      q: `name='${FILE_NAME}' and trashed=false`,
-      fields: 'files(id,modifiedTime)',
-      orderBy: 'modifiedTime desc',
-      spaces: 'drive',
-      pageSize: '100',
-      _t: String(Date.now())
-    });
-    const r = await fetch(listUrl, {
-      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
-      cache: 'no-store'
-    });
-    if (!r.ok) return;
-    const dupFiles = ((await r.json()).files || []).filter(f => f.id !== fileId);
-    for (const f of dupFiles) {
-      try {
-        await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trashed: true }),
-          cache: 'no-store'
-        });
-      } catch (e) {
-        console.warn('No se pudo trash duplicado', f.id, e);
-      }
-    }
-  } catch (e) {
-    console.warn('dedupe-on-save falló', e);
-  }
-}
-
-async function saveToDrive() {
-  if (!fileId || flushing || pendingOps.length === 0) return;
-  flushing = true;
-  showSyncStatus('Guardando...', 'saving');
-  try {
-    // Drenar todas las ops que se hayan ido acumulando, por tandas.
-    while (pendingOps.length) {
-      const batch = pendingOps.splice(0);
-      try {
-        await flushBatch(batch);
-      } catch (e) {
-        // Devolver la tanda al frente de la cola para reintentar más tarde.
-        pendingOps.unshift(...batch);
-        throw e;
-      }
-    }
-    await dedupeAfterSave();
-    document.getElementById('metaInfo').textContent =
-      `Última modificación: ${new Date().toLocaleString('es-ES')}`;
-    showSyncStatus('Drive conectado', 'connected');
-  } catch (err) {
-    console.error(err);
-    showSyncError('Error al guardar');
-  } finally {
-    flushing = false;
-    // Si llegaron ops nuevas (o falló el flush), reprogramar.
-    if (pendingOps.length) scheduleSave();
-  }
-}
-
-// Auto-save con debounce
-function scheduleSave() {
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(saveToDrive, 800);
-}
-
-function showSyncStatus(text, state) {
-  const indicator = document.getElementById('syncIndicator');
-  indicator.className = 'sync-indicator ' + state;
-  document.getElementById('syncText').textContent = text;
-}
-
-function showSyncError(msg) {
-  showSyncStatus(msg, 'error');
-}
-
-// ============================================================
-// RENDER
-// ============================================================
-const grid = document.getElementById('projectGrid');
-const weekTasks = document.getElementById('weekTasks');
-const modal = document.getElementById('modal');
-const modalContent = document.getElementById('modalContent');
-const search = document.getElementById('search');
-
-function render() {
-  const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
-  renderCards(activeFilter, search.value);
-  renderWeekTasks();
-}
-
-function renderCards(filter = 'all', searchTerm = '') {
-  const filtered = proyectos.filter(p => {
-    const matchFilter = filter === 'all' || p.estado === filter;
-    const matchSearch = !searchTerm ||
-      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.tags || []).some(t => t.includes(searchTerm.toLowerCase()));
-    return matchFilter && matchSearch;
-  });
-
-  if (proyectos.length === 0) {
-    grid.innerHTML = `<div class="empty-hint" style="grid-column: 1/-1;">
-      Aún no hay proyectos.<br>
-      Empieza creando uno con el botón <strong>+ Nuevo Proyecto</strong> arriba.
-    </div>`;
-    return;
+  function sincro(texto, clase) {
+    var el = $("#sincro");
+    el.textContent = texto;
+    el.className = "sincro" + (clase ? " " + clase : "");
   }
 
-  grid.innerHTML = filtered.length ? filtered.map(p => `
-    <article class="card" data-status="${p.estado}" data-id="${p.id}">
-      <div class="card-header">
-        <span class="card-id">${p.id}</span>
-        <span class="status-badge">${p.estado}</span>
-      </div>
-      <h3>${escapeHtml(p.nombre)}</h3>
-      <p class="description">${escapeHtml(p.descripcion || '')}</p>
-      <div class="progress-section">
-        <div class="progress-label">
-          <span>Progreso</span>
-          <span>${p.progreso || 0}%</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${p.progreso || 0}%"></div>
-        </div>
-      </div>
-      <div class="next-step">
-        <span class="label">Próximo paso</span>
-        <span class="text">${escapeHtml(p.proximoPaso || '—')}</span>
-      </div>
-      <div class="tags">
-        ${(p.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}
-      </div>
-    </article>
-  `).join('') : '<div class="empty-hint" style="grid-column: 1/-1;">No hay proyectos que coincidan</div>';
+  function avisar(texto, mal) {
+    var el = $("#aviso");
+    el.textContent = texto;
+    el.className = "aviso" + (mal ? " mal" : "");
+    el.hidden = false;
+    clearTimeout(avisar.t);
+    avisar.t = setTimeout(function () { el.hidden = true; }, mal ? 6000 : 2600);
+  }
 
-  document.querySelectorAll('.card').forEach(card => {
-    card.addEventListener('click', () => openProject(card.dataset.id));
-  });
-}
-
-function renderWeekTasks() {
-  const tasks = proyectos
-    .filter(p => p.estado === 'activo' || p.estado === 'planificacion')
-    .filter(p => p.proximoPaso)
-    .map(p => ({ proj: p.nombre, task: p.proximoPaso, id: p.id }));
-
-  weekTasks.innerHTML = tasks.length ? tasks.map(t => `
-    <div class="week-task" data-id="${t.id}">
-      <div class="proj">${escapeHtml(t.proj)}</div>
-      <div class="task">${escapeHtml(t.task)}</div>
-    </div>
-  `).join('') : '<div style="color: var(--accent-soft); font-style: italic;">No hay tareas pendientes para esta semana</div>';
-
-  document.querySelectorAll('.week-task').forEach(t => {
-    t.addEventListener('click', () => openProject(t.dataset.id));
-  });
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// ============================================================
-// MODAL DE PROYECTO
-// ============================================================
-function openProject(id) {
-  const p = proyectos.find(x => x.id === id);
-  if (!p) return;
-  if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
-  if (!p.roadmap) p.roadmap = [];
-  if (!p.tags) p.tags = [];
-
-  modalContent.innerHTML = `
-    <button class="modal-close" onclick="closeModal()">×</button>
-    <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
-      <span class="card-id">${p.id}</span>
-    </div>
-    <h2 class="editable" contenteditable="true" data-field="nombre" data-id="${p.id}">${escapeHtml(p.nombre)}</h2>
-    <p class="subtitle editable" contenteditable="true" data-field="descripcion" data-id="${p.id}">${escapeHtml(p.descripcion || 'Añade una descripción...')}</p>
-
-    <div class="modal-controls">
-      <span class="control-label">Estado:</span>
-      <select data-field="estado" data-id="${p.id}">
-        <option value="activo" ${p.estado === 'activo' ? 'selected' : ''}>Activo</option>
-        <option value="pausado" ${p.estado === 'pausado' ? 'selected' : ''}>Pausado</option>
-        <option value="planificacion" ${p.estado === 'planificacion' ? 'selected' : ''}>Planificación</option>
-        <option value="completado" ${p.estado === 'completado' ? 'selected' : ''}>Completado</option>
-      </select>
-      <span class="control-label">Progreso:</span>
-      <input type="number" class="progress-input" min="0" max="100" value="${p.progreso || 0}" data-field="progreso" data-id="${p.id}">%
-      <span class="control-label">Etiquetas:</span>
-      <input type="text" class="progress-input" style="width: 200px;" value="${(p.tags || []).join(', ')}" data-field="tags" data-id="${p.id}" placeholder="separadas por coma">
-      <button class="danger-btn" onclick="deleteProject('${p.id}')">Eliminar proyecto</button>
-    </div>
-
-    <div class="modal-section">
-      <h3>Próximo paso</h3>
-      <div class="editable" contenteditable="true" data-field="proximoPaso" data-id="${p.id}"
-        style="padding: 12px 16px; background: var(--paper-warm); border-radius: 8px; font-size: 15px;">
-        ${escapeHtml(p.proximoPaso || 'Define el próximo paso...')}
-      </div>
-    </div>
-
-    <div class="modal-section">
-      <h3>Tareas</h3>
-      <div class="kanban">
-        <div class="column" data-col="porHacer" data-pid="${p.id}">
-          <h4>Por hacer · ${p.tareas.porHacer.length}</h4>
-          ${p.tareas.porHacer.map((t, i) => `
-            <div class="task-card" data-col="porHacer" data-idx="${i}" data-pid="${p.id}">
-              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
-              <span class="task-text">${escapeHtml(t)}</span>
-              <div class="task-actions">
-                <button onclick="moveTask('${p.id}', 'porHacer', 'enCurso', ${i})" title="A en curso">→</button>
-                <button onclick="deleteTask('${p.id}', 'porHacer', ${i})" title="Eliminar">×</button>
-              </div>
-            </div>
-          `).join('')}
-          <div class="add-task-form">
-            <input type="text" placeholder="Nueva tarea..." onkeydown="if(event.key==='Enter') addTask('${p.id}', 'porHacer', this)">
-            <button onclick="addTask('${p.id}', 'porHacer', this.previousElementSibling)">+</button>
-          </div>
-        </div>
-        <div class="column" data-col="enCurso" data-pid="${p.id}">
-          <h4>En curso · ${p.tareas.enCurso.length}</h4>
-          ${p.tareas.enCurso.map((t, i) => `
-            <div class="task-card priority" data-col="enCurso" data-idx="${i}" data-pid="${p.id}">
-              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
-              <span class="task-text">${escapeHtml(t)}</span>
-              <div class="task-actions">
-                <button onclick="moveTask('${p.id}', 'enCurso', 'porHacer', ${i})" title="Volver">←</button>
-                <button onclick="moveTask('${p.id}', 'enCurso', 'hecho', ${i})" title="A hecho">→</button>
-                <button onclick="deleteTask('${p.id}', 'enCurso', ${i})">×</button>
-              </div>
-            </div>
-          `).join('')}
-          <div class="add-task-form">
-            <input type="text" placeholder="Nueva tarea..." onkeydown="if(event.key==='Enter') addTask('${p.id}', 'enCurso', this)">
-            <button onclick="addTask('${p.id}', 'enCurso', this.previousElementSibling)">+</button>
-          </div>
-        </div>
-        <div class="column" data-col="hecho" data-pid="${p.id}">
-          <h4>Hecho · ${p.tareas.hecho.length}</h4>
-          ${p.tareas.hecho.map((t, i) => `
-            <div class="task-card" style="opacity:0.6;" data-col="hecho" data-idx="${i}" data-pid="${p.id}">
-              <span class="drag-handle" title="Arrastra para mover">⋮⋮</span>
-              <span class="task-text">${escapeHtml(t)}</span>
-              <div class="task-actions">
-                <button onclick="moveTask('${p.id}', 'hecho', 'enCurso', ${i})" title="Volver">←</button>
-                <button onclick="deleteTask('${p.id}', 'hecho', ${i})">×</button>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-section">
-      <h3>
-        Hoja de ruta
-        <button class="small-add" onclick="addRoadmapItem('${p.id}')">+ Añadir hito</button>
-      </h3>
-      <div id="roadmap-list">
-        ${p.roadmap.map((r, i) => `
-          <div class="roadmap-item">
-            <div class="roadmap-marker ${r.estado || 'current'}"
-              onclick="cycleRoadmapStatus('${p.id}', ${i})"
-              title="Click para cambiar estado"></div>
-            <input type="text" class="roadmap-when" value="${escapeHtml(r.fecha || '')}"
-              placeholder="cuándo"
-              data-rid="${p.id}" data-ridx="${i}" data-rfield="fecha">
-            <input type="text" class="roadmap-what" value="${escapeHtml(r.texto || '')}"
-              placeholder="qué"
-              data-rid="${p.id}" data-ridx="${i}" data-rfield="texto">
-            <button class="roadmap-delete" onclick="deleteRoadmapItem('${p.id}', ${i})">×</button>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-
-    <div class="modal-section">
-      <h3>Notas</h3>
-      <textarea class="notes-area" data-field="notas" data-id="${p.id}"
-        placeholder="Anotaciones, decisiones, ideas...">${escapeHtml(p.notas || '')}</textarea>
-    </div>
-  `;
-
-  // Event listeners para edición
-  modalContent.querySelectorAll('[contenteditable="true"]').forEach(el => {
-    el.addEventListener('blur', handleEdit);
-  });
-  modalContent.querySelectorAll('select, input, textarea').forEach(el => {
-    if (el.dataset.field) el.addEventListener('change', handleEdit);
-    if (el.dataset.field === 'notas' || el.dataset.field === 'tags' || el.dataset.field === 'progreso') {
-      el.addEventListener('input', debounceEdit);
-    }
-    if (el.dataset.rfield) {
-      el.addEventListener('change', handleRoadmapEdit);
-      el.addEventListener('input', debounceEdit);
-    }
-  });
-
-  setupDragDrop();
-  modal.classList.add('open');
-}
-
-// Drag and drop tasks between kanban columns using Pointer Events
-// (works on touch and mouse). Long-press / handle-only drag avoids
-// stealing scroll. The handle is the ⋮⋮ glyph on the left of each task.
-function setupDragDrop() {
-  let drag = null;
-  const handles = modalContent.querySelectorAll('.task-card .drag-handle');
-  handles.forEach(handle => {
-    handle.addEventListener('pointerdown', onDown);
-  });
-  function onDown(e) {
-    e.preventDefault();
-    const card = e.target.closest('.task-card');
-    if (!card) return;
-    const fromCol = card.dataset.col;
-    const idx = parseInt(card.dataset.idx);
-    const pid = card.dataset.pid;
-    const rect = card.getBoundingClientRect();
-    drag = {
-      card, pid, fromCol, idx,
-      offsetX: e.clientX - rect.left,
-      offsetY: e.clientY - rect.top,
-      ghostHeight: rect.height,
-      pointerId: e.pointerId
+  async function api(ruta, cuerpo) {
+    var opciones = {
+      method: cuerpo ? "POST" : "GET",
+      headers: { Authorization: "Bearer " + clave(), "Content-Type": "application/json" },
+      cache: "no-store"
     };
-    // Add a ghost spacer where the card was, so layout doesn't collapse
-    const ghost = document.createElement('div');
-    ghost.style.height = rect.height + 'px';
-    ghost.style.opacity = '0';
-    ghost.dataset.ghost = '1';
-    card.parentNode.insertBefore(ghost, card);
-    drag.ghost = ghost;
-    // Fix card size so it keeps its width when fixed-positioned
-    card.style.width = rect.width + 'px';
-    card.style.position = 'fixed';
-    card.style.left = (e.clientX - drag.offsetX) + 'px';
-    card.style.top = (e.clientY - drag.offsetY) + 'px';
-    card.classList.add('dragging');
-    document.querySelectorAll('.kanban .column').forEach(c => c.classList.add('dropzone'));
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
-    document.addEventListener('pointercancel', onUp);
-    if (navigator.vibrate) navigator.vibrate(20);
-  }
-  function onMove(e) {
-    if (!drag) return;
-    drag.card.style.left = (e.clientX - drag.offsetX) + 'px';
-    drag.card.style.top = (e.clientY - drag.offsetY) + 'px';
-    // Find column under pointer
-    document.querySelectorAll('.kanban .column').forEach(c => c.classList.remove('drag-over'));
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    const col = under && under.closest('.kanban .column');
-    if (col) col.classList.add('drag-over');
-  }
-  function onUp(e) {
-    if (!drag) return;
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    document.removeEventListener('pointercancel', onUp);
-    let target = null;
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    if (under) target = under.closest('.kanban .column');
-    document.querySelectorAll('.kanban .column').forEach(c => c.classList.remove('drag-over', 'dropzone'));
-    drag.card.classList.remove('dragging');
-    drag.card.style.position = '';
-    drag.card.style.left = '';
-    drag.card.style.top = '';
-    drag.card.style.width = '';
-    if (drag.ghost) drag.ghost.remove();
-    if (target && target.dataset.col && target.dataset.col !== drag.fromCol) {
-      const toCol = target.dataset.col;
-      // Reuse existing moveTask which handles save + re-render
-      moveTask(drag.pid, drag.fromCol, toCol, drag.idx);
+    if (cuerpo) opciones.body = JSON.stringify(cuerpo);
+    var res = await fetch("/api/" + ruta, opciones);
+    if (res.status === 401) {
+      localStorage.removeItem("cdp_clave");
+      mostrarEntrada("La clave ya no vale.");
+      throw new Error("clave");
     }
-    drag = null;
-  }
-}
-
-let editTimeout;
-function debounceEdit(e) {
-  clearTimeout(editTimeout);
-  editTimeout = setTimeout(() => handleEdit(e), 500);
-}
-
-function handleEdit(e) {
-  const el = e.target;
-  const id = el.dataset.id;
-  const field = el.dataset.field;
-  if (!id || !field) {
-    if (el.dataset.rfield) return handleRoadmapEdit(e);
-    return;
+    var json = await res.json();
+    if (!res.ok || json.error) throw new Error(json.error || "HTTP " + res.status);
+    return json;
   }
 
-  const p = proyectos.find(x => x.id === id);
-  if (!p) return;
+  // Guardar es lo único que puede perder trabajo, así que se ve siempre en qué
+  // estado está y los fallos no se tragan en silencio.
+  async function guardar(ruta, cuerpo, alVuelo) {
+    sincro("guardando", "guardando");
+    try {
+      var r = await api(ruta, cuerpo);
+      sincro("al día");
+      if (alVuelo) alVuelo(r);
+      return r;
+    } catch (e) {
+      sincro("sin guardar", "error");
+      avisar("No se ha podido guardar: " + e.message, true);
+      await cargar();
+      throw e;
+    }
+  }
 
-  let value = el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
-    ? el.value
-    : el.textContent.trim();
+  async function cargar() {
+    datos = await api("estado");
+    $("#c-proyectos").textContent = datos.proyectos.length;
+    $("#c-tareas").textContent = datos.tareas.filter(function (t) { return t.estado !== "hecho"; }).length;
+    $("#c-cerebro").textContent = datos.contadores.notas || 0;
+    $("#c-bandeja").textContent = datos.capturas.length || "";
+    pintar();
+  }
 
-  if (field === 'progreso') value = parseInt(value) || 0;
-  if (field === 'tags') value = value.split(',').map(t => t.trim()).filter(Boolean);
-  if (field === 'descripcion' && value === 'Añade una descripción...') value = '';
-  if (field === 'proximoPaso' && value === 'Define el próximo paso...') value = '';
-
-  p[field] = value;
-  queueOp({ t: 'field', pid: id, field, value });
-  render();
-}
-
-function handleRoadmapEdit(e) {
-  const el = e.target;
-  const id = el.dataset.rid;
-  const idx = parseInt(el.dataset.ridx);
-  const field = el.dataset.rfield;
-  const p = proyectos.find(x => x.id === id);
-  if (!p || !p.roadmap[idx]) return;
-  p.roadmap[idx][field] = el.value;
-  queueOp({ t: 'rfield', pid: id, idx, field, value: el.value });
-}
-
-window.closeModal = () => modal.classList.remove('open');
-modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-
-window.addTask = (id, col, input) => {
-  const text = input.value.trim();
-  if (!text) return;
-  const p = proyectos.find(x => x.id === id);
-  if (!p) return;
-  if (!p.tareas) p.tareas = { porHacer: [], enCurso: [], hecho: [] };
-  p.tareas[col].push(text);
-  queueOp({ t: 'addTask', pid: id, col, text });
-  openProject(id);
-};
-
-window.deleteTask = (id, col, idx) => {
-  const p = proyectos.find(x => x.id === id);
-  if (!p) return;
-  const text = p.tareas[col][idx];
-  p.tareas[col].splice(idx, 1);
-  queueOp({ t: 'delTask', pid: id, col, text });
-  openProject(id);
-};
-
-window.moveTask = (id, from, to, idx) => {
-  const p = proyectos.find(x => x.id === id);
-  if (!p) return;
-  const task = p.tareas[from].splice(idx, 1)[0];
-  p.tareas[to].push(task);
-  queueOp({ t: 'moveTask', pid: id, from, to, text: task });
-  openProject(id);
-};
-
-window.addRoadmapItem = (id) => {
-  const p = proyectos.find(x => x.id === id);
-  if (!p) return;
-  if (!p.roadmap) p.roadmap = [];
-  const item = { fecha: '', texto: '', estado: 'future' };
-  p.roadmap.push(item);
-  queueOp({ t: 'addRoadmap', pid: id, item });
-  openProject(id);
-};
-
-window.deleteRoadmapItem = (id, idx) => {
-  const p = proyectos.find(x => x.id === id);
-  if (!p) return;
-  p.roadmap.splice(idx, 1);
-  queueOp({ t: 'delRoadmap', pid: id, idx });
-  openProject(id);
-};
-
-window.cycleRoadmapStatus = (id, idx) => {
-  const p = proyectos.find(x => x.id === id);
-  if (!p || !p.roadmap[idx]) return;
-  const cycle = { future: 'current', current: 'done', done: 'future' };
-  p.roadmap[idx].estado = cycle[p.roadmap[idx].estado || 'future'];
-  queueOp({ t: 'rfield', pid: id, idx, field: 'estado', value: p.roadmap[idx].estado });
-  openProject(id);
-};
-
-window.deleteProject = (id) => {
-  if (!confirm('¿Eliminar este proyecto? Esta acción no se puede deshacer.')) return;
-  proyectos = proyectos.filter(p => p.id !== id);
-  queueOp({ t: 'delProject', pid: id });
-  closeModal();
-  render();
-};
-
-// ============================================================
-// CREAR PROYECTO
-// ============================================================
-document.getElementById('addProjectBtn').addEventListener('click', () => {
-  const nombre = prompt('Nombre del proyecto:');
-  if (!nombre) return;
-  const nextNum = (proyectos.length + 1).toString().padStart(3, '0');
-  const newProject = {
-    id: 'P-' + nextNum,
-    nombre: nombre.trim(),
-    descripcion: '',
-    estado: 'planificacion',
-    progreso: 0,
-    proximoPaso: '',
-    tags: [],
-    tareas: { porHacer: [], enCurso: [], hecho: [] },
-    roadmap: [],
-    notas: '',
-    creado: new Date().toISOString()
-  };
-  proyectos.push(newProject);
-  queueOp({ t: 'addProject', project: newProject });
-  render();
-  openProject(newProject.id);
-});
-
-// ============================================================
-// FILTROS Y BÚSQUEDA
-// ============================================================
-document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    render();
+  // ---------- luz ----------
+  var raiz = document.documentElement;
+  function fijarLuz(luz) {
+    raiz.setAttribute("data-luz", luz);
+    localStorage.setItem("cdp_luz", luz);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", luz === "sol" ? "#e4e6e3" : luz === "noche" ? "#080a0d" : "#101318");
+    Array.prototype.forEach.call(document.querySelectorAll("#luces button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.luz === luz));
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("#luces button"), function (b) {
+    b.addEventListener("click", function () { fijarLuz(b.dataset.luz); });
   });
-});
 
-search.addEventListener('input', render);
+  // ---------- pintado ----------
+  function pintar() {
+    if (vista === "proyectos") pintarProyectos();
+    if (vista === "tareas") pintarTareas();
+    if (vista === "cerebro") pintarNotas();
+    if (vista === "bandeja") pintarBandeja();
+  }
+
+  function tablero(destino, selector, cols, items, pintaTarjeta, pie) {
+    var cont = $(destino), sel = $(selector);
+    cont.innerHTML = "";
+    sel.innerHTML = "";
+    if (!colActiva[destino]) colActiva[destino] = cols[0].k;
+
+    cols.forEach(function (c) {
+      var lista = items.filter(function (x) { return (x.estado || cols[0].k) === c.k; });
+      var col = document.createElement("div");
+      col.className = "col" + (colActiva[destino] === c.k ? " activa" : "");
+      col.dataset.col = c.k;
+      col.innerHTML =
+        '<div class="col-cab"><span class="col-punto" style="background:' + c.c + '"></span>' +
+        "<h2>" + esc(c.t) + '</h2><span class="n mono">' + lista.length + "</span></div>" +
+        '<div class="col-cuerpo">' + (lista.map(pintaTarjeta).join("") || '<div class="vacio">Nada aquí.</div>') + "</div>" +
+        (pie && pie(c) ? '<div class="col-pie">' + pie(c) + "</div>" : "");
+      cont.appendChild(col);
+      zonaDeSoltar(col, c.k);
+
+      var chip = document.createElement("button");
+      chip.setAttribute("aria-pressed", String(colActiva[destino] === c.k));
+      chip.textContent = c.t + " · " + lista.length;
+      chip.addEventListener("click", function () {
+        colActiva[destino] = c.k;
+        Array.prototype.forEach.call(cont.children, function (o) {
+          o.classList.toggle("activa", o.dataset.col === c.k);
+        });
+        Array.prototype.forEach.call(sel.children, function (o) {
+          o.setAttribute("aria-pressed", String(o === chip));
+        });
+      });
+      sel.appendChild(chip);
+    });
+  }
+
+  function pintarProyectos() {
+    tablero("#tab-proyectos", "#sel-proyectos", COLS_PROYECTO, datos.proyectos, function (p) {
+      var c = p.conteos || {};
+      return (
+        '<article class="tj" draggable="true" data-nodo="' + p.id + '" data-estado="' + p.estado + '">' +
+        '<div class="tj-sup"><span class="tj-id mono">' + p.id + "</span>" +
+        '<span class="tj-id mono" style="margin-left:auto">' + p.progreso + "%</span></div>" +
+        '<p class="tj-t">' + esc(p.titulo) + "</p>" +
+        '<div class="barra-prog"><i style="width:' + p.progreso + '%"></i></div>' +
+        (p.proximoPaso ? '<p class="tj-paso">' + esc(p.proximoPaso) + "</p>" : "") +
+        '<div class="tj-pie"><span class="mono">' + (c.porHacer || 0) + " por hacer</span>" +
+        (c.enCurso ? '<span class="mono" style="color:var(--accent)">' + c.enCurso + " en curso</span>" : "") +
+        '<button class="mover" data-mover="' + p.id + '">Mover</button></div>' +
+        "</article>"
+      );
+    });
+  }
+
+  function pintarTareas() {
+    var lista = datos.tareas.filter(function (t) {
+      return filtroTareas === "mias" ? t.agente === "jonathan" || !t.agente : true;
+    });
+    tablero(
+      "#tab-tareas",
+      "#sel-tareas",
+      COLS_TAREA,
+      lista,
+      function (t) {
+        return (
+          '<article class="tj' + (t.estado === "hecho" ? " hecha" : "") + '" draggable="true" data-nodo="' + t.id + '" data-estado="' + t.estado + '">' +
+          '<div class="tj-sup">' + (t.proyecto ? '<span class="etq proj">' + t.proyecto + "</span>" : "") + "</div>" +
+          '<p class="tj-t">' + esc(t.titulo) + "</p>" +
+          '<div class="tj-pie"><button class="mover" data-mover="' + t.id + '">Mover</button></div>' +
+          "</article>"
+        );
+      },
+      function (c) {
+        return c.k === "hecho" && datos.contadores.hechasOcultas
+          ? "y " + datos.contadores.hechasOcultas + " más, archivadas. Se buscan desde el Cerebro."
+          : "";
+      }
+    );
+  }
+
+  function pintarNotas() {
+    var lista = notas.filter(function (n) {
+      return filtroNota === "todo" || (n.extra && n.extra.subtipo) === filtroNota;
+    });
+    $("#lista-notas").innerHTML =
+      lista
+        .map(function (n) {
+          var sub = (n.extra && n.extra.subtipo) || "project";
+          var desc = (n.extra && n.extra.descripcion) || n.cuerpo || "";
+          return (
+            '<article class="nt" data-nodo="' + n.id + '">' +
+            '<span class="nt-tipo t-' + sub + '">' + esc(SUBTIPOS[sub] || sub) + "</span>" +
+            "<h3>" + esc(n.titulo) + "</h3><p>" + esc(desc) + "</p>" +
+            '<div class="nt-pie">' +
+            (n.proyecto ? '<span class="etq proj">' + n.proyecto + "</span>" : '<span class="etq">transversal</span>') +
+            (n.etiquetas || []).map(function (e) { return '<span class="etq">' + esc(e) + "</span>"; }).join("") +
+            "</div></article>"
+          );
+        })
+        .join("") || '<p class="vacio">Nada por aquí todavía.</p>';
+  }
+
+  function pintarBandeja() {
+    var opciones = datos.proyectos
+      .map(function (p) { return '<option value="' + p.id + '">' + p.id + " " + esc(p.titulo) + "</option>"; })
+      .join("");
+    $("#lista-bandeja").innerHTML =
+      datos.capturas
+        .map(function (c) {
+          var via = (c.extra && c.extra.via) || "pwa";
+          return (
+            '<div class="cap" data-cap="' + c.id + '">' +
+            '<span class="cap-via">' + esc(via) + "</span>" +
+            '<div class="cap-cuerpo"><p>' + esc(c.titulo) + "</p>" +
+            '<div class="cap-meta mono">' + c.id + " · " + fecha(c.modificado) + "</div></div>" +
+            '<div class="cap-acc">' +
+            '<select data-destino="' + c.id + '"><option value="">Sin proyecto</option>' + opciones + "</select>" +
+            '<button data-clasificar="tarea">Tarea</button>' +
+            '<button data-clasificar="nota">Nota</button>' +
+            '<button data-clasificar="descartar">Descartar</button>' +
+            "</div></div>"
+          );
+        })
+        .join("") || '<p class="vacio">Bandeja vacía. Suelta algo arriba.</p>';
+  }
+
+  function fecha(iso) {
+    if (!iso) return "";
+    var d = new Date(iso), hoy = new Date();
+    var mismoDia = d.toDateString() === hoy.toDateString();
+    return mismoDia
+      ? "hoy " + d.toTimeString().slice(0, 5)
+      : d.toISOString().slice(0, 10);
+  }
+
+  // ---------- mover: arrastrar en escritorio, menú con el dedo ----------
+  var arrastrado = null;
+
+  document.addEventListener("dragstart", function (e) {
+    var tj = e.target.closest && e.target.closest(".tj");
+    if (!tj) return;
+    arrastrado = tj;
+    tj.classList.add("arrastrando");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", tj.dataset.nodo);
+  });
+  document.addEventListener("dragend", function () {
+    if (arrastrado) arrastrado.classList.remove("arrastrando");
+    arrastrado = null;
+    Array.prototype.forEach.call(document.querySelectorAll(".col"), function (c) {
+      c.classList.remove("destino");
+    });
+  });
+
+  function zonaDeSoltar(col, estado) {
+    col.addEventListener("dragover", function (e) {
+      if (!arrastrado) return;
+      e.preventDefault();
+      col.classList.add("destino");
+    });
+    col.addEventListener("dragleave", function () { col.classList.remove("destino"); });
+    col.addEventListener("drop", async function (e) {
+      e.preventDefault();
+      col.classList.remove("destino");
+      if (!arrastrado) return;
+      var id = arrastrado.dataset.nodo;
+      var vecinas = vecinasEn(col, e.clientY);
+      await mover(id, estado, vecinas.antes, vecinas.despues);
+    });
+  }
+
+  // Entre qué dos tarjetas se ha soltado: el orden nuevo es el punto medio.
+  function vecinasEn(col, y) {
+    var cuerpo = col.querySelector(".col-cuerpo");
+    var tarjetas = Array.prototype.slice.call(cuerpo.querySelectorAll(".tj")).filter(function (t) {
+      return t !== arrastrado;
+    });
+    var antes = null, despues = null;
+    for (var i = 0; i < tarjetas.length; i++) {
+      var caja = tarjetas[i].getBoundingClientRect();
+      if (y > caja.top + caja.height / 2) antes = tarjetas[i].dataset.nodo;
+      else { despues = tarjetas[i].dataset.nodo; break; }
+    }
+    return { antes: antes, despues: despues };
+  }
+
+  async function mover(id, estado, antes, despues) {
+    await guardar("mover", { id: id, estado: estado, antes: antes, despues: despues });
+    await cargar();
+  }
+
+  // Menú "Mover": con el dedo, arrastrar dentro de una lista que además baja
+  // falla más de lo que acierta.
+  document.addEventListener("click", function (e) {
+    var boton = e.target.closest("[data-mover]");
+    if (!boton) return;
+    e.stopPropagation();
+    var id = boton.dataset.mover;
+    var esProyecto = /^P-\d{3}$/.test(id);
+    var cols = esProyecto ? COLS_PROYECTO : COLS_TAREA;
+    var actual = boton.closest(".tj").dataset.estado;
+    var menu = $("#menu");
+    menu.innerHTML = cols
+      .filter(function (c) { return c.k !== actual; })
+      .map(function (c) { return '<button data-a="' + c.k + '">Mover a ' + esc(c.t) + "</button>"; })
+      .join("");
+    var caja = boton.getBoundingClientRect();
+    menu.hidden = false;
+    menu.style.top = Math.min(caja.bottom + 6, window.innerHeight - menu.offsetHeight - 10) + "px";
+    menu.style.left = Math.min(caja.left, window.innerWidth - menu.offsetWidth - 10) + "px";
+    menu.onclick = async function (ev) {
+      var b = ev.target.closest("[data-a]");
+      if (!b) return;
+      menu.hidden = true;
+      await mover(id, b.dataset.a, null, null);
+    };
+  });
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#menu") && !e.target.closest("[data-mover]")) $("#menu").hidden = true;
+  });
+
+  // ---------- panel de detalle ----------
+  async function abrir(id) {
+    var panel = $("#panel");
+    panel.innerHTML = '<p class="vacio">Cargando...</p>';
+    panel.hidden = false;
+    $("#velo").hidden = false;
+
+    var esProyecto = /^P-\d{3}$/.test(id);
+    panel.innerHTML = esProyecto ? await fichaProyecto(id) : await fichaNodo(id);
+    enganchesDelPanel(panel, id);
+  }
+
+  function cerrar() {
+    $("#panel").hidden = true;
+    $("#velo").hidden = true;
+  }
+
+  async function fichaProyecto(id) {
+    var f = await api("proyecto/" + id);
+    var p = f.proyecto;
+    var paso = String(p.extra.proximoPaso || "");
+    return (
+      cabecera(p, "proyecto") +
+      '<h2 contenteditable="plaintext-only" data-campo="titulo">' + esc(p.titulo) + "</h2>" +
+      "<dl>" +
+      campoSelect("Estado", "estado", p.estado, COLS_PROYECTO.map(function (c) { return [c.k, c.t]; })) +
+      campo("Progreso", '<input type="number" min="0" max="100" data-extra="progreso" value="' + (p.extra.progreso || 0) + '">') +
+      campo("Etiquetas", '<input type="text" data-etiquetas value="' + esc((p.etiquetas || []).join(", ")) + '" placeholder="separadas por comas">') +
+      "</dl>" +
+      '<div class="panel-sec"><h3>Próximo paso</h3>' +
+      '<textarea data-extra="proximoPaso" maxlength="' + TOPE_PASO + '" rows="3">' + esc(paso) + "</textarea>" +
+      '<div class="contador' + (paso.length > TOPE_PASO ? " pasado" : "") + '" id="contador-paso">' +
+      paso.length + " / " + TOPE_PASO + " · lo demás va a tareas, notas y sesiones</div></div>" +
+      seccionTareas(f.tareas) +
+      seccionLista("Sesiones", f.sesiones, function (s) {
+        return '<span class="fila-tipo mono">' + esc((s.extra && s.extra.fecha) || "") + "</span><span>" + esc(s.cuerpo || s.titulo) + "</span>";
+      }) +
+      seccionLista("Notas", f.notas, function (n) {
+        return '<span class="fila-tipo">' + esc(((n.extra && n.extra.subtipo) || "nota")) + '</span><button class="enlace" data-nodo="' + n.id + '">' + esc(n.titulo) + "</button>";
+      }) +
+      seccionEnlaces(f.enlaces) +
+      '<div class="peligro"><button data-borrar="' + p.id + '">Borrar el proyecto entero</button></div>'
+    );
+  }
+
+  async function fichaNodo(id) {
+    var n = await api("nodo/" + id);
+    var sub = (n.extra && n.extra.subtipo) || "";
+    return (
+      cabecera(n, n.tipo) +
+      '<h2 contenteditable="plaintext-only" data-campo="titulo">' + esc(n.titulo) + "</h2>" +
+      "<dl>" +
+      (n.tipo === "tarea"
+        ? campoSelect("Estado", "estado", n.estado, COLS_TAREA.map(function (c) { return [c.k, c.t]; }))
+        : "") +
+      (n.tipo === "nota"
+        ? campoSelect("Tipo", "extra:subtipo", sub, Object.keys(SUBTIPOS).map(function (k) { return [k, SUBTIPOS[k]]; }))
+        : "") +
+      campo("Proyecto", selectProyecto(n.proyecto)) +
+      campo("Quién", selectAgente(n.agente)) +
+      campo("Etiquetas", '<input type="text" data-etiquetas value="' + esc((n.etiquetas || []).join(", ")) + '">') +
+      "</dl>" +
+      '<div class="panel-sec"><h3>Contenido</h3>' +
+      '<textarea data-campo="cuerpo" rows="9">' + esc(n.cuerpo || "") + "</textarea></div>" +
+      seccionEnlaces(n.enlaces) +
+      '<div class="peligro"><button data-borrar="' + n.id + '">Borrar</button></div>'
+    );
+  }
+
+  function cabecera(n, tipo) {
+    return (
+      '<div class="panel-cab"><span class="etq mono">' + n.id + '</span><span class="etq">' + esc(tipo) + "</span>" +
+      (n.proyecto ? '<span class="etq proj">' + n.proyecto + "</span>" : "") +
+      '<button class="cerrar" aria-label="Cerrar">&times;</button></div>'
+    );
+  }
+  function campo(nombre, html) {
+    return '<div class="campo"><dt>' + esc(nombre) + "</dt><dd>" + html + "</dd></div>";
+  }
+  function campoSelect(nombre, campoId, valor, opciones) {
+    return campo(
+      nombre,
+      '<select data-campo="' + campoId + '">' +
+        opciones.map(function (o) {
+          return '<option value="' + o[0] + '"' + (o[0] === valor ? " selected" : "") + ">" + esc(o[1]) + "</option>";
+        }).join("") +
+        "</select>"
+    );
+  }
+  function selectProyecto(actual) {
+    return (
+      '<select data-campo="proyecto"><option value="">Transversal</option>' +
+      datos.proyectos.map(function (p) {
+        return '<option value="' + p.id + '"' + (p.id === actual ? " selected" : "") + ">" + p.id + " " + esc(p.titulo) + "</option>";
+      }).join("") +
+      "</select>"
+    );
+  }
+  function selectAgente(actual) {
+    var quienes = [["", "Sin asignar"], ["jonathan", "Jonathan"], ["claude-code", "Claude Code"], ["codex", "Codex"]];
+    return (
+      '<select data-campo="agente">' +
+      quienes.map(function (q) {
+        return '<option value="' + q[0] + '"' + (q[0] === (actual || "") ? " selected" : "") + ">" + q[1] + "</option>";
+      }).join("") +
+      "</select>"
+    );
+  }
+
+  function seccionTareas(tareas) {
+    var vivas = tareas.filter(function (t) { return t.estado !== "hecho"; });
+    var hechas = tareas.length - vivas.length;
+    return (
+      '<div class="panel-sec"><h3>Tareas <span>' + hechas + " hechas</span></h3>" +
+      (vivas
+        .map(function (t) {
+          return '<div class="fila"><span class="fila-tipo">' + esc(t.estado) + '</span><button class="enlace" data-nodo="' + t.id + '">' + esc(t.titulo) + "</button></div>";
+        })
+        .join("") || '<p class="vacio">Ninguna pendiente.</p>') +
+      "</div>"
+    );
+  }
+
+  function seccionLista(titulo, lista, pinta) {
+    if (!lista || !lista.length) return "";
+    return (
+      '<div class="panel-sec"><h3>' + esc(titulo) + " <span>" + lista.length + "</span></h3>" +
+      lista.slice(0, 25).map(function (x) { return '<div class="fila">' + pinta(x) + "</div>"; }).join("") +
+      "</div>"
+    );
+  }
+
+  function seccionEnlaces(enlaces) {
+    if (!enlaces) return "";
+    var salen = enlaces.salen || [], entran = enlaces.entran || [];
+    if (!salen.length && !entran.length) return "";
+    var fila = function (e) {
+      return '<div class="fila"><span class="fila-tipo">' + esc(e.tipo) + '</span><button class="enlace" data-nodo="' + e.id + '">' + esc(e.titulo) + "</button></div>";
+    };
+    return (
+      (salen.length ? '<div class="panel-sec"><h3>Enlaza con</h3>' + salen.map(fila).join("") + "</div>" : "") +
+      (entran.length ? '<div class="panel-sec"><h3>Le apuntan</h3>' + entran.map(fila).join("") + "</div>" : "")
+    );
+  }
+
+  // Guardado al salir del campo: no hay botón de guardar y no hace falta.
+  function enganchesDelPanel(panel, id) {
+    var cerrarBtn = panel.querySelector(".cerrar");
+    if (cerrarBtn) cerrarBtn.addEventListener("click", cerrar);
+
+    var recoger = function (el) {
+      var cuerpo = { id: id };
+      var campo = el.dataset.campo;
+      if (el.hasAttribute("data-etiquetas")) {
+        cuerpo.etiquetas = el.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+      } else if (el.dataset.extra) {
+        var extra = {};
+        extra[el.dataset.extra] = el.type === "number" ? Number(el.value) : el.value;
+        cuerpo.extra = extra;
+      } else if (campo && campo.indexOf("extra:") === 0) {
+        var e2 = {};
+        e2[campo.slice(6)] = el.value;
+        cuerpo.extra = e2;
+      } else if (campo) {
+        cuerpo[campo] = el.tagName === "H2" ? el.textContent.trim() : el.value;
+      } else {
+        return null;
+      }
+      return cuerpo;
+    };
+
+    Array.prototype.forEach.call(panel.querySelectorAll("[data-campo],[data-extra],[data-etiquetas]"), function (el) {
+      var evento = el.tagName === "SELECT" ? "change" : "blur";
+      el.addEventListener(evento, async function () {
+        var cuerpo = recoger(el);
+        if (!cuerpo) return;
+        await guardar("nodo", cuerpo);
+        await cargar();
+      });
+      if (el.dataset.extra === "proximoPaso") {
+        el.addEventListener("input", function () {
+          var c = panel.querySelector("#contador-paso");
+          if (c) {
+            c.textContent = el.value.length + " / " + TOPE_PASO + " · lo demás va a tareas, notas y sesiones";
+            c.classList.toggle("pasado", el.value.length >= TOPE_PASO);
+          }
+        });
+      }
+    });
+
+    var borrar = panel.querySelector("[data-borrar]");
+    if (borrar) {
+      borrar.addEventListener("click", async function () {
+        if (!confirm("¿Borrar " + borrar.dataset.borrar + "? No hay vuelta atrás.")) return;
+        await guardar("borrar", { id: borrar.dataset.borrar });
+        cerrar();
+        await cargar();
+      });
+    }
+  }
+
+  // ---------- eventos generales ----------
+  document.addEventListener("click", function (e) {
+    if (e.target.closest("[data-mover]") || e.target.closest("#menu")) return;
+    var d = e.target.closest("[data-nodo]");
+    if (!d) return;
+    e.preventDefault();
+    abrir(d.dataset.nodo);
+  });
+  $("#velo").addEventListener("click", cerrar);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { cerrar(); $("#menu").hidden = true; }
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".pestanas button"), function (b) {
+    b.addEventListener("click", async function () {
+      vista = b.dataset.vista;
+      Array.prototype.forEach.call(document.querySelectorAll(".pestanas button"), function (o) {
+        o.setAttribute("aria-selected", String(o === b));
+      });
+      ["proyectos", "tareas", "cerebro", "bandeja"].forEach(function (v) {
+        $("#v-" + v).hidden = v !== vista;
+      });
+      if (vista === "cerebro" && !notas.length) {
+        notas = await api("notas");
+      }
+      pintar();
+      window.scrollTo(0, 0);
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll("#filtros-tareas button"), function (b) {
+    b.addEventListener("click", function () {
+      filtroTareas = b.dataset.f;
+      Array.prototype.forEach.call(document.querySelectorAll("#filtros-tareas button"), function (o) {
+        o.setAttribute("aria-pressed", String(o === b));
+      });
+      pintarTareas();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#filtros-notas button"), function (b) {
+    b.addEventListener("click", function () {
+      filtroNota = b.dataset.t;
+      Array.prototype.forEach.call(document.querySelectorAll("#filtros-notas button"), function (o) {
+        o.setAttribute("aria-pressed", String(o === b));
+      });
+      pintarNotas();
+    });
+  });
+
+  var temporizadorBusca;
+  $("#buscar").addEventListener("input", function (e) {
+    clearTimeout(temporizadorBusca);
+    var q = e.target.value.trim();
+    temporizadorBusca = setTimeout(async function () {
+      notas = q ? await api("buscar?q=" + encodeURIComponent(q) + "&limite=60") : await api("notas");
+      pintarNotas();
+    }, 220);
+  });
+
+  async function capturar() {
+    var campo = $("#captura");
+    var texto = campo.value.trim();
+    if (!texto) return;
+    campo.value = "";
+    var r = await guardar("capturar", { texto: texto, via: "pwa" });
+    avisar(r.sugerencia ? "Capturado. Sugiere " + r.sugerencia : "Capturado.");
+    await cargar();
+  }
+  $("#captura").addEventListener("keydown", function (e) { if (e.key === "Enter") capturar(); });
+  $("#btn-captura").addEventListener("click", capturar);
+
+  $("#lista-bandeja").addEventListener("click", async function (e) {
+    var b = e.target.closest("[data-clasificar]");
+    if (!b) return;
+    var caja = b.closest("[data-cap]");
+    var proyecto = caja.querySelector("select").value;
+    await guardar("clasificar", {
+      id: caja.dataset.cap,
+      destino: b.dataset.clasificar,
+      proyecto: proyecto,
+      subtipo: "project"
+    });
+    await cargar();
+    if (b.dataset.clasificar !== "descartar") notas = [];
+  });
+
+  // ---------- entrada ----------
+  var googlePreparado = false;
+  function mostrarEntrada(error) {
+    $("#entrada").hidden = false;
+    $("#app").hidden = true;
+    $("#entrada-error").textContent = error || "";
+    // Si la sesión caduca estando dentro, hay que volver a pintar el botón:
+    // sin esto la pantalla de entrada saldría solo con la clave larga.
+    if (!googlePreparado) { googlePreparado = true; prepararGoogle(); }
+  }
+
+  async function entrar(valor) {
+    localStorage.setItem("cdp_clave", valor);
+    try {
+      await cargar();
+      $("#entrada").hidden = true;
+      $("#app").hidden = false;
+      compartido();
+    } catch (e) {
+      if (e.message !== "clave") mostrarEntrada("No se ha podido entrar: " + e.message);
+    }
+  }
+  $("#entrar").addEventListener("click", function () { entrar($("#clave").value.trim()); });
+  $("#clave").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") entrar($("#clave").value.trim());
+  });
+
+  // Entrar con Google. Lo que se guarda NO es el token de Google: es una sesión
+  // propia de un mes, firmada por el servidor. Así rotar la clave del CdP echa
+  // a todo el mundo de golpe y el token de Google no vive en el navegador.
+  async function entrarConGoogle(credencial) {
+    $("#entrada-error").textContent = "";
+    try {
+      var res = await fetch("/api/sesion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credencial: credencial })
+      });
+      var datos = await res.json();
+      if (!res.ok) throw new Error(datos.error || "no se ha podido entrar");
+      entrar(datos.token);
+    } catch (e) {
+      mostrarEntrada(e.message);
+    }
+  }
+
+  function prepararGoogle() {
+    var pintar = function () {
+      if (!window.google || !google.accounts || !google.accounts.id) return;
+      fetch("/api/config")
+        .then(function (r) { return r.json(); })
+        .then(function (cfg) {
+          google.accounts.id.initialize({
+            client_id: cfg.clienteGoogle,
+            callback: function (r) { entrarConGoogle(r.credential); }
+          });
+          google.accounts.id.renderButton($("#boton-google"), {
+            theme: raiz.getAttribute("data-luz") === "sol" ? "outline" : "filled_black",
+            size: "large",
+            text: "continue_with",
+            locale: "es",
+            width: 300
+          });
+        })
+        .catch(function () {
+          $("#entrada-error").textContent = "No se ha podido preparar la entrada con Google. Usa la clave larga.";
+        });
+    };
+    var script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = pintar;
+    script.onerror = function () {
+      $("#entrada-error").textContent = "Google no responde. Usa la clave larga.";
+    };
+    document.head.appendChild(script);
+  }
+
+  // Compartir desde el móvil: iOS abre la app con ?texto=... y eso entra
+  // directo en la bandeja, sin que haya que teclear nada.
+  function compartido() {
+    var p = new URLSearchParams(location.search);
+    var texto = [p.get("titulo"), p.get("texto"), p.get("url")].filter(Boolean).join(" ").trim();
+    if (!texto) return;
+    history.replaceState(null, "", location.pathname);
+    guardar("capturar", { texto: texto, via: "pwa" }).then(function () {
+      avisar("Guardado en la bandeja.");
+      cargar();
+    });
+  }
+
+  // ---------- arranque ----------
+  fijarLuz(localStorage.getItem("cdp_luz") || "interior");
+  if (clave()) entrar(clave());
+  else mostrarEntrada();
+
+  // Al volver a la app tras un rato, lo que hay en pantalla puede ser viejo:
+  // otra sesión de Claude o el bot han podido escribir mientras tanto.
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && !$("#app").hidden) cargar().catch(function () {});
+  });
+})();
 </script>
-
-  <script src="/pwa-init.js" defer></script>
 </body>
 </html>
