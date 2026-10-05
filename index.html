@@ -1042,6 +1042,23 @@
   }
 
   function prepararGoogle() {
+    if (location.hostname === "cdp.friday-imperio.com") {
+      var boton = document.createElement("button"); boton.textContent = "Entrar con Google";
+      $("#boton-google").appendChild(boton);
+      boton.addEventListener("click", function () {
+        var estado = crypto.randomUUID();
+        var puente = window.open("https://centro-proyectos.pages.dev/entrar.html?estado=" + encodeURIComponent(estado), "cdp-google", "width=440,height=620");
+        if (!puente) { $("#entrada-error").textContent = "Permite la ventana de entrada con Google."; return; }
+        function recibir(evento) {
+          if (evento.origin !== "https://centro-proyectos.pages.dev" || evento.source !== puente || evento.data?.tipo !== "cdp-sesion" || evento.data.estado !== estado) return;
+          window.removeEventListener("message", recibir); clearTimeout(limite);
+          if (typeof evento.data.token === "string" && evento.data.token) entrar(evento.data.token);
+        }
+        var limite = setTimeout(function () { window.removeEventListener("message", recibir); }, 300000);
+        window.addEventListener("message", recibir);
+      });
+      return;
+    }
     var pintar = function () {
       if (!window.google || !google.accounts || !google.accounts.id) return;
       fetch("/api/config")

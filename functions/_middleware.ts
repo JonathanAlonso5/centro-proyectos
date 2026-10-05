@@ -24,6 +24,7 @@
 
 interface Env {
   MCP_SECRET: string;
+  CDP_ORIGIN?: string;
 }
 
 const ACCESS_TTL = 180 * 24 * 3600; // 180 días
@@ -162,6 +163,18 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   // también antes de next impide recuperar sus assets desde la caché edge.
   if (/^\/(scripts|schema|dev|docs|tests|functions|node_modules|\.git)(\/|$)/.test(path) || /^\/package(?:-lock)?\.json$/.test(path)) {
     return new Response("No existe", { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
+
+  // Tras la migración, esta URL solo conserva compatibilidad: toda lectura
+  // y escritura acaba en el VPS y no en una segunda base D1.
+  if (env.CDP_ORIGIN) {
+    if (env.CDP_ORIGIN !== "https://cdp.friday-imperio.com") return new Response("Destino inválido", { status: 503 });
+    const target = new URL(request.url); target.protocol = "https:"; target.host = "cdp.friday-imperio.com";
+    const headers = new Headers(request.headers);
+    headers.set("x-cdp-origin", origin); headers.set("x-cdp-proxy", env.MCP_SECRET);
+    const upstream = await fetch(new Request(target.toString(), { method: request.method, headers, body: request.body ? await request.arrayBuffer() : undefined, redirect: "manual" }));
+    const out = new Headers(upstream.headers); out.set("x-cdp-backend", "vps"); out.set("Cache-Control", "no-store");
+    return new Response(upstream.body, { status: upstream.status, headers: out });
   }
 
   const isOauthPath =

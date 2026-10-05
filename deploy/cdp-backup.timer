@@ -1,0 +1,7 @@
+[Unit]
+Description=Copia diaria del CdP
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Centro de Proyectos (web, MCP y SQLite)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/scraper/cdp/centro-proyectos
+ExecStart=/home/scraper/.nvm/versions/node/v24.15.0/bin/node --env-file=/home/scraper/cdp/centro-proyectos/.env.vps --no-warnings /home/scraper/cdp/centro-proyectos/vps/server.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=60
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

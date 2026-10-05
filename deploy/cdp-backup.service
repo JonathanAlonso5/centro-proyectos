@@ -1,0 +1,7 @@
+[Unit]
+Description=Copia consistente de SQLite CdP
+[Service]
+Type=oneshot
+WorkingDirectory=/home/scraper/cdp/centro-proyectos
+ExecStart=/home/scraper/.nvm/versions/node/v24.15.0/bin/node --no-warnings /home/scraper/cdp/centro-proyectos/deploy/backup.mjs
+UMask=0077
