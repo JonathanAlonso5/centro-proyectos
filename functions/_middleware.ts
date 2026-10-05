@@ -158,6 +158,11 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
   const origin = url.origin;
+  // Las versiones antiguas publicaban el repositorio entero. Interceptar
+  // también antes de next impide recuperar sus assets desde la caché edge.
+  if (/^\/(scripts|schema|dev|docs|tests|functions|node_modules|\.git)(\/|$)/.test(path) || /^\/package(?:-lock)?\.json$/.test(path)) {
+    return new Response("No existe", { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
 
   const isOauthPath =
     path.startsWith("/.well-known/oauth-") || path.startsWith("/oauth/");
