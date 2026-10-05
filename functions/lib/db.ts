@@ -204,36 +204,37 @@ export async function actualizarNodo(
   id: string,
   cambios: Partial<NodoEntrada>
 ): Promise<Nodo | null> {
-  const actual = await obtenerNodo(db, id);
-  if (!actual) return null;
-
-  const sets: string[] = [];
-  const args: any[] = [];
-  for (const campo of CAMPOS_ACTUALIZABLES) {
-    if ((cambios as any)[campo] !== undefined) {
-      sets.push(`${campo} = ?`);
-      args.push((cambios as any)[campo]);
+  // Cada clave se aplica sobre el JSON que vive en D1, no sobre una copia
+  // leída antes. JSON_SET conserva null y sustituye objetos completos.
+  for (let intento = 0; intento < 5; intento++) {
+    const actual = await obtenerNodo(db, id);
+    if (!actual) return null;
+    const sets: string[] = [];
+    const args: any[] = [];
+    for (const campo of CAMPOS_ACTUALIZABLES) {
+      if ((cambios as any)[campo] !== undefined) {
+        sets.push(`${campo} = ?`);
+        args.push((cambios as any)[campo]);
+      }
     }
+    const entradas = Object.entries(cambios.extra ?? {});
+    if (entradas.length) {
+      sets.push(`extra = json_set(COALESCE(extra, '{}'), ${entradas.map(() => "?, json(?)").join(", ")})`);
+      for (const [clave, valor] of entradas) {
+        args.push("$." + JSON.stringify(clave), JSON.stringify(valor));
+      }
+    }
+    sets.push("huella = ?", "modificado = ?");
+    args.push(await huellaDe((cambios.titulo ?? actual.titulo) + "\n" + (cambios.cuerpo ?? actual.cuerpo)), ahora());
+    // El hash debe corresponder al texto final: si cambió mientras se
+    // calculaba, releemos y repetimos solo este PATCH.
+    args.push(id, actual.titulo, actual.cuerpo);
+    const res = await db.prepare(`UPDATE nodes SET ${sets.join(", ")} WHERE id = ? AND titulo IS ? AND cuerpo IS ?`).bind(...args).run();
+    if (!res.meta?.changes) continue;
+    if (cambios.etiquetas !== undefined) await fijarEtiquetas(db, id, cambios.etiquetas);
+    return await obtenerNodo(db, id);
   }
-  // extra se funde con lo que ya había: así una tool que solo toca `progreso`
-  // no borra `roadmap` sin querer.
-  if (cambios.extra !== undefined) {
-    sets.push("extra = ?");
-    args.push(JSON.stringify({ ...actual.extra, ...cambios.extra }));
-  }
-
-  const titulo = cambios.titulo ?? actual.titulo;
-  const cuerpo = cambios.cuerpo ?? actual.cuerpo;
-  sets.push("huella = ?");
-  args.push(await huellaDe(titulo + "\n" + cuerpo));
-  sets.push("modificado = ?");
-  args.push(ahora());
-
-  args.push(id);
-  await db.prepare(`UPDATE nodes SET ${sets.join(", ")} WHERE id = ?`).bind(...args).run();
-
-  if (cambios.etiquetas !== undefined) await fijarEtiquetas(db, id, cambios.etiquetas);
-  return await obtenerNodo(db, id);
+  throw new Error("El nodo cambió durante el guardado; vuelve a intentarlo.");
 }
 
 export async function borrarNodo(db: D1Database, id: string): Promise<boolean> {

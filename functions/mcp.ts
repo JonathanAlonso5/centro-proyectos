@@ -457,6 +457,16 @@ async function executeTool(name: string, args: any, env: Env): Promise<any> {
     }
 
     case "cdp_update_project": {
+      const permitidas = ["id", "nombre", "descripcion", "estado", "progreso", "proximoPaso", "notas", "tags"];
+      for (const clave of Object.keys(args)) {
+        if (!permitidas.includes(clave)) throw new Error(`Campo desconocido: ${clave}. Usa proximoPaso para el siguiente paso.`);
+      }
+      for (const clave of ["id", "nombre", "descripcion", "estado", "proximoPaso", "notas"]) {
+        if (args[clave] !== undefined && typeof args[clave] !== "string") throw new Error(`Tipo inválido para ${clave}`);
+      }
+      if (args.progreso !== undefined && (typeof args.progreso !== "number" || !Number.isFinite(args.progreso) || args.progreso < 0 || args.progreso > 100)) throw new Error("progreso debe estar entre 0 y 100");
+      if (args.estado !== undefined && !["activo", "pausado", "planificacion", "desarrollo", "completado"].includes(args.estado)) throw new Error("Estado inválido");
+      if (args.tags !== undefined && (!Array.isArray(args.tags) || args.tags.some((t: unknown) => typeof t !== "string"))) throw new Error("Tags inválidos");
       await exigirProyecto(args.id);
       const cambios: any = { extra: {} };
       if (args.nombre !== undefined) cambios.titulo = args.nombre;
@@ -777,7 +787,20 @@ async function handleRpc(
 
   if (method === "tools/call") {
     try {
-      const result = await executeTool(params.name, params.arguments ?? {}, env);
+      const argumentos = params.arguments ?? {};
+      const schema = TOOLS.find(t => t.name === params.name)?.inputSchema as any;
+      if (typeof argumentos !== "object" || Array.isArray(argumentos) || argumentos === null) throw new Error("Argumentos inválidos");
+      for (const clave of schema?.required ?? []) {
+        if (argumentos[clave] === undefined) throw new Error(`${clave} es obligatorio`);
+      }
+      for (const [clave, regla] of Object.entries(schema?.properties ?? {}) as Array<[string, any]>) {
+        const valor = argumentos[clave];
+        if (valor === undefined) continue;
+        const tipo = regla.type;
+        if ((tipo === "array" && !Array.isArray(valor)) || (tipo === "object" && (valor === null || Array.isArray(valor) || typeof valor !== "object")) || (["string", "number", "boolean"].includes(tipo) && typeof valor !== tipo)) throw new Error(`Tipo inválido para ${clave}`);
+        if (regla.enum && !regla.enum.includes(valor)) throw new Error(`Valor inválido para ${clave}`);
+      }
+      const result = await executeTool(params.name, argumentos, env);
       return rpcResult(
         id,
         { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] },

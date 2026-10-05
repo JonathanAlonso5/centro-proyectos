@@ -421,28 +421,44 @@
 
   // Guardar es lo único que puede perder trabajo, así que se ve siempre en qué
   // estado está y los fallos no se tragan en silencio.
-  async function guardar(ruta, cuerpo, alVuelo) {
+  var colaGuardados = Promise.resolve();
+  var pendientesGuardado = 0;
+  var falloGuardado = false;
+  function guardar(ruta, cuerpo, alVuelo) {
+    if (!pendientesGuardado) falloGuardado = false;
+    pendientesGuardado++;
     sincro("guardando", "guardando");
-    try {
-      var r = await api(ruta, cuerpo);
-      sincro("al día");
-      if (alVuelo) alVuelo(r);
-      return r;
-    } catch (e) {
-      sincro("sin guardar", "error");
-      avisar("No se ha podido guardar: " + e.message, true);
-      await cargar();
-      throw e;
-    }
+    var trabajo = colaGuardados.then(async function () {
+      try {
+        var r = await api(ruta, cuerpo);
+        if (alVuelo) alVuelo(r);
+        return r;
+      } catch (e) {
+        falloGuardado = true;
+        avisar("No se ha podido guardar: " + e.message + ". El texto sigue en el campo; vuelve a salir de él para reintentar.", true);
+        throw e;
+      } finally {
+        pendientesGuardado--;
+        sincro(falloGuardado ? "sin guardar" : pendientesGuardado ? "guardando" : "al día", falloGuardado ? "error" : pendientesGuardado ? "guardando" : "");
+      }
+    });
+    // Un fallo se muestra y se devuelve, pero no rompe la cola siguiente.
+    colaGuardados = trabajo.catch(function () {});
+    return trabajo;
   }
 
+  var cargaActual = 0;
   async function cargar() {
-    datos = await api("estado");
+    var numero = ++cargaActual;
+    var nuevos = await api("estado");
+    if (numero !== cargaActual) return;
+    datos = nuevos;
     $("#c-proyectos").textContent = datos.proyectos.length;
     $("#c-tareas").textContent = datos.tareas.filter(function (t) { return t.estado !== "hecho"; }).length;
     $("#c-cerebro").textContent = datos.contadores.notas || 0;
     $("#c-bandeja").textContent = datos.capturas.length || "";
     pintar();
+    if (!pendientesGuardado && !falloGuardado) sincro("al día");
   }
 
   // ---------- luz ----------
@@ -861,11 +877,15 @@
 
     Array.prototype.forEach.call(panel.querySelectorAll("[data-campo],[data-extra],[data-etiquetas]"), function (el) {
       var evento = el.tagName === "SELECT" ? "change" : "blur";
+      var guardado = JSON.stringify(recoger(el));
       el.addEventListener(evento, async function () {
         var cuerpo = recoger(el);
-        if (!cuerpo) return;
-        await guardar("nodo", cuerpo);
-        await cargar();
+        if (!cuerpo || JSON.stringify(cuerpo) === guardado) return;
+        try {
+          await guardar("nodo", cuerpo);
+          guardado = JSON.stringify(cuerpo);
+          await cargar();
+        } catch (e) { /* guardar ya informa y conserva el borrador */ }
       });
       if (el.dataset.extra === "proximoPaso") {
         el.addEventListener("input", function () {
@@ -1073,9 +1093,14 @@
 
   // Al volver a la app tras un rato, lo que hay en pantalla puede ser viejo:
   // otra sesión de Claude o el bot han podido escribir mientras tanto.
-  document.addEventListener("visibilitychange", function () {
-    if (!document.hidden && !$("#app").hidden) cargar().catch(function () {});
-  });
+  function refrescar() {
+    if (!document.hidden && !$("#app").hidden && !pendientesGuardado) {
+      cargar().catch(function (e) { sincro("sin conexión", "error"); });
+    }
+  }
+  document.addEventListener("visibilitychange", refrescar);
+  window.addEventListener("focus", refrescar);
+  setInterval(refrescar, 60000);
 })();
 </script>
 </body>

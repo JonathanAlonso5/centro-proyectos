@@ -15,6 +15,7 @@ cd "$(dirname "$0")/.."
 
 W=(npx wrangler d1 execute cdp --local -c dev/wrangler.jsonc --persist-to .wrangler/state -y)
 
+node scripts/migrar-drive-a-d1.mjs --fixture > /dev/null
 echo "Recargando la D1 local..."
 "${W[@]}" --file=schema/0001_nodos.sql   > /dev/null
 "${W[@]}" --file=scripts/migracion.sql   > /dev/null   # proyectos y tareas

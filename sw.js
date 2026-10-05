@@ -7,7 +7,7 @@
  * (no cambian con frecuencia). Datos del Drive siguen
  * stale-while-revalidate (mejor UX que esperar 1-2s).
  */
-const CACHE_VERSION = 'cdp-v2';
+const CACHE_VERSION = 'cdp-v3';
 const SHELL_CACHE = CACHE_VERSION + '-shell';
 const DATA_CACHE = CACHE_VERSION + '-data';
 // Solo assets estáticos que rara vez cambian — el HTML va por network-first.

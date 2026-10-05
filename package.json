@@ -1,0 +1,18 @@
+{
+  "name": "centro-proyectos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:contratos": "bash tests/probar.sh",
+    "dev": "wrangler pages dev . --d1 CDP=7c8cca0e-e507-458c-b650-bf8617f654bf --binding MCP_SECRET=local-test --port 8788",
+    "build": "node scripts/preparar-publicacion.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260612.1",
+    "esbuild": "0.17.19",
+    "playwright": "1.55.0",
+    "typescript": "5.9.3",
+    "wrangler": "3.114.17"
+  }
+}

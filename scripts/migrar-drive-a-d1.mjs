@@ -22,7 +22,7 @@ const MCP = "https://centro-proyectos.pages.dev/mcp";
 const RUTA_SECRETO = "/home/jonathan/.config/tcgprecios/cdp-mcp-secret";
 const AHORA = new Date().toISOString();
 
-const secreto = readFileSync(RUTA_SECRETO, "utf8").trim();
+const secreto = process.argv.includes("--fixture") ? "" : (process.env.CDP_MCP_SECRET || readFileSync(RUTA_SECRETO, "utf8").trim());
 
 // El WAF de Cloudflare devuelve 403 a User-Agents de librerías (pasó con
 // python-urllib). Con uno de curl pasa. Ver memoria reference_cdp_mcp.
@@ -65,16 +65,16 @@ function huella(texto) {
 }
 
 const main = async () => {
-  console.log("Leyendo el CdP de producción...");
-  const listado = await llamar("cdp_list_projects");
+  console.log(process.argv.includes("--fixture") ? "Generando fixture local..." : "Leyendo el CdP de producción...");
+  const listado = process.argv.includes("--fixture") ? JSON.parse(readFileSync(join(RAIZ, "scripts/instantanea-drive.json"), "utf8")).proyectos : await llamar("cdp_list_projects");
   const proyectos = [];
   for (const p of listado) {
-    proyectos.push(await llamar("cdp_get_project", { id: p.id }));
+    proyectos.push(process.argv.includes("--fixture") ? p : await llamar("cdp_get_project", { id: p.id }));
     process.stdout.write(`  ${p.id} `);
   }
   console.log("\n");
 
-  writeFileSync(
+  if (!process.argv.includes("--fixture")) writeFileSync(
     join(RAIZ, "scripts/instantanea-drive.json"),
     JSON.stringify({ tomada: AHORA, proyectos }, null, 2)
   );
@@ -173,6 +173,7 @@ const main = async () => {
   writeFileSync(ruta, sql.join("\n"));
   console.log(`SQL generado: ${proyectos.length} proyectos, ${nTareas} tareas -> ${ruta}`);
 
+  if (process.argv.includes("--fixture") && process.argv.includes("--aplicar")) throw new Error("El fixture nunca se aplica automáticamente ni a producción.");
   if (process.argv.includes("--aplicar")) {
     for (const destino of ["--local", "--remote"]) {
       console.log(`\nAplicando ${destino}...`);
